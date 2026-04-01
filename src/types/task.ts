@@ -14,11 +14,12 @@ export interface ChecklistItem {
   checked: boolean
 }
 
+/** 90% → 완료(100%) 전환 시에만 사용하는 최종 체크리스트 */
 export interface Task {
   id: string
   title: string
   description: string
   status: 'active' | 'done'
   currentStage: Stage
-  checklist: Record<Stage, ChecklistItem[]>
+  checklist: ChecklistItem[]
 }
