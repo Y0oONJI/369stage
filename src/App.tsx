@@ -121,8 +121,8 @@ export default function App() {
       <NewTaskModal
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreate={(title, description, dueDate) => {
-          const id = addTask(title, description, dueDate)
+        onCreate={(title, description, dueDate, categoryId) => {
+          const id = addTask(title, description, dueDate, categoryId)
           setSelectedId(id)
         }}
       />

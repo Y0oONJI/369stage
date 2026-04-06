@@ -1,11 +1,13 @@
 import { create, type StateCreator } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { createDebouncedPersistStorage } from '../lib/debouncedPersistStorage'
+import { buildChecklistTemplate } from '../data/qaStructured'
 import { isStageComplete, nextStage } from '../lib/gates'
 import {
   emptyDirectionNotes,
   type ChecklistItem,
   type DirectionNoteItem,
+  type QaCategoryId,
   type Stage,
   type Task,
 } from '../types/task'
@@ -21,7 +23,14 @@ function newId(): string {
 
 export interface TaskStore {
   tasks: Task[]
-  addTask: (title: string, description: string, dueDate: string) => string
+  addTask: (
+    title: string,
+    description: string,
+    dueDate: string,
+    categoryId: QaCategoryId,
+  ) => string
+  /** 90%인데 체크리스트가 비어 있을 때(복원·경합) 템플릿으로 채움 */
+  ensureCategoryChecklistAt90: (taskId: string) => void
   updateTask: (
     id: string,
     patch: Partial<Pick<Task, 'title' | 'description' | 'dueDate'>>,
@@ -49,13 +58,14 @@ export interface TaskStore {
 const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
   tasks: [],
 
-  addTask: (title, description, dueDate) => {
+  addTask: (title, description, dueDate, categoryId) => {
     const id = newId()
     const task: Task = {
       id,
       title: title.trim() || '제목 없음',
       description: description.trim(),
       dueDate: dueDate.trim(),
+      categoryId,
       directionNotes: emptyDirectionNotes(),
       status: 'active',
       currentStage: 30,
@@ -63,6 +73,19 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
     }
     set((s) => ({ tasks: [task, ...s.tasks] }))
     return id
+  },
+
+  ensureCategoryChecklistAt90: (taskId) => {
+    const t = get().tasks.find((x) => x.id === taskId)
+    if (!t || t.status !== 'active' || t.currentStage !== 90) return
+    if (t.checklist.length > 0) return
+    const template = buildChecklistTemplate(t.categoryId)
+    if (template.length === 0) return
+    set((s) => ({
+      tasks: s.tasks.map((x) =>
+        x.id === taskId ? { ...x, checklist: template } : x,
+      ),
+    }))
   },
 
   updateTask: (id, patch) => {
@@ -102,7 +125,15 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
     const n = nextStage(t.currentStage)
     if (n === null) return
     set((s) => ({
-      tasks: s.tasks.map((x) => (x.id === id ? { ...x, currentStage: n } : x)),
+      tasks: s.tasks.map((x) => {
+        if (x.id !== id) return x
+        if (n !== 90) return { ...x, currentStage: n }
+        const checklist =
+          x.checklist.length === 0
+            ? buildChecklistTemplate(x.categoryId)
+            : x.checklist
+        return { ...x, currentStage: n, checklist }
+      }),
     }))
   },
 

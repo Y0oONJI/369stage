@@ -1,3 +1,6 @@
+/** qa_practical.md 카테고리 id와 동일 */
+export type QaCategoryId = 'common' | 'ui' | 'print'
+
 export type Stage = 30 | 60 | 90
 
 export const STAGES: Stage[] = [30, 60, 90]
@@ -12,6 +15,12 @@ export interface ChecklistItem {
   id: string
   text: string
   checked: boolean
+  /** 짧은 라벨 (QA 템플릿) */
+  label?: string
+  /** 섹션 제목 — UI에서 그룹 헤더 */
+  sectionTitle?: string
+  /** 카테고리 내 섹션·항목 순번 표시 (예: 1-1, 2-3) */
+  displayCode?: string
 }
 
 /** 단계별 디렉션 노트 한 줄(저장 단위) */
@@ -37,6 +46,8 @@ export interface Task {
   description: string
   /** 목표일 등, `YYYY-MM-DD`. 없으면 빈 문자열 */
   dueDate: string
+  /** QA 체크리스트 카테고리 — 생성 시 선택, 이후 변경 없음 */
+  categoryId: QaCategoryId
   /** 단계별 디렉션 노트 목록 */
   directionNotes: DirectionNotes
   status: 'active' | 'done'

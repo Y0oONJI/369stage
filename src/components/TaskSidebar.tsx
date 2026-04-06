@@ -1,4 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
+import { getCategoryTitle } from '../data/qaStructured'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { useTaskStore } from '../store/taskStore'
 import { ProgressDots } from './ProgressDots'
@@ -122,6 +123,9 @@ function TaskRow({
         {dueLine && (
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{dueLine}</span>
         )}
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+          {getCategoryTitle(task.categoryId)}
+        </span>
         <ProgressDots currentStage={task.currentStage} done={done} />
       </button>
     </li>

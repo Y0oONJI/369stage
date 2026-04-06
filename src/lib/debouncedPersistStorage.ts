@@ -33,7 +33,10 @@ export function createDebouncedPersistStorage(
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', flushAll)
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushAll()
+      if (document.visibilityState === 'hidden') {
+        /** 동기 stringify+localStorage가 탭 전환 직후 메인 스레드를 막아 포커스/페인트와 경합 — 다음 태스크로 미룸 */
+        window.setTimeout(flushAll, 0)
+      }
     })
   }
 

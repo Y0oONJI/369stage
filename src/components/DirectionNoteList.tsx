@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { formatNoteStamp } from '../lib/formatNoteStamp'
 import { STAGE_LABELS, type DirectionNoteItem, type Stage } from '../types/task'
 
@@ -23,7 +23,8 @@ export function DirectionNoteList({
   const [draft, setDraft] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
+  /** useEffect는 페인트 이후라 포커스가 한 프레임 늦음 → 레이아웃 직후 동기 포커스 */
+  useLayoutEffect(() => {
     if (editingId && textareaRef.current) {
       textareaRef.current.focus()
     }

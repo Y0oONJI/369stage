@@ -3,6 +3,7 @@ import {
   type ChecklistItem,
   type DirectionNoteItem,
   type DirectionNotes,
+  type QaCategoryId,
   type Task,
 } from '../types/task'
 
@@ -45,6 +46,11 @@ function parseDirectionNotes(raw: unknown): DirectionNotes {
   return base
 }
 
+function parseCategoryId(raw: unknown): QaCategoryId {
+  if (raw === 'common' || raw === 'ui' || raw === 'print') return raw
+  return 'common'
+}
+
 /** 예전: checklist가 단계별 Record → 90% 배열만 유지 */
 export function migrateTask(raw: unknown): Task {
   if (!raw || typeof raw !== 'object') {
@@ -56,10 +62,12 @@ export function migrateTask(raw: unknown): Task {
   const dueDate =
     typeof t.dueDate === 'string' ? t.dueDate : ''
 
+  const categoryId = parseCategoryId(t.categoryId)
+
   const directionNotes = parseDirectionNotes(t.directionNotes)
 
   if (Array.isArray(checklist)) {
-    return { ...(raw as Task), dueDate, directionNotes }
+    return { ...(raw as Task), dueDate, directionNotes, categoryId }
   }
 
   if (checklist && typeof checklist === 'object' && '90' in checklist) {
@@ -69,10 +77,11 @@ export function migrateTask(raw: unknown): Task {
       checklist: Array.isArray(items) ? items : [],
       dueDate,
       directionNotes,
+      categoryId,
     }
   }
 
-  return { ...(raw as Task), checklist: [], dueDate, directionNotes }
+  return { ...(raw as Task), checklist: [], dueDate, directionNotes, categoryId }
 }
 
 export function migrateTasks(tasks: unknown): Task[] {

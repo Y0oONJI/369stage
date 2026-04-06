@@ -1,24 +1,35 @@
 import { useState } from 'react'
+import { getCategorySelectOptions } from '../data/qaStructured'
+import type { QaCategoryId } from '../types/task'
 
 type Props = {
   open: boolean
   onClose: () => void
-  onCreate: (title: string, description: string, dueDate: string) => void
+  onCreate: (
+    title: string,
+    description: string,
+    dueDate: string,
+    categoryId: QaCategoryId,
+  ) => void
 }
+
+const categoryOptions = getCategorySelectOptions()
 
 export function NewTaskModal({ open, onClose, onCreate }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [categoryId, setCategoryId] = useState<QaCategoryId>('common')
 
   if (!open) return null
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onCreate(title, description, dueDate)
+    onCreate(title, description, dueDate, categoryId)
     setTitle('')
     setDescription('')
     setDueDate('')
+    setCategoryId('common')
     onClose()
   }
 
@@ -65,6 +76,23 @@ export function NewTaskModal({ open, onClose, onCreate }: Props) {
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500">QA 카테고리</label>
+            <p className="mb-1.5 text-[11px] text-zinc-500">
+              90% 최종 체크리스트가 이 카테고리에 맞춰 채워집니다. 만든 뒤에는 바꿀 수 없습니다.
+            </p>
+            <select
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:border-zinc-600"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value as QaCategoryId)}
+            >
+              {categoryOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.title}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button
