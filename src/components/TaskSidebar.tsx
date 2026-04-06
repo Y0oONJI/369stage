@@ -15,13 +15,13 @@ export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
   const completed = tasks.filter((t) => t.status === 'done')
 
   return (
-    <aside className="flex w-full max-w-sm flex-col border-r border-zinc-800/80 bg-zinc-950">
-      <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-3">
-        <h1 className="text-sm font-semibold tracking-tight text-zinc-100">369stage</h1>
+    <aside className="flex w-full max-w-sm flex-col border-r border-zinc-200 bg-white">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+        <h1 className="text-sm font-semibold tracking-tight text-zinc-900">369stage</h1>
         <button
           type="button"
           onClick={onNewTask}
-          className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-900 hover:bg-white"
+          className="rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800"
         >
           새 작업
         </button>
@@ -94,13 +94,13 @@ function TaskRow({
         onClick={onSelect}
         className={[
           'flex w-full flex-col gap-2 rounded-md px-2 py-2 text-left transition-colors',
-          selected ? 'bg-zinc-800/90' : 'hover:bg-zinc-900',
+          selected ? 'bg-zinc-200/90' : 'hover:bg-zinc-100',
         ].join(' ')}
       >
         <span
           className={[
             'truncate text-sm font-medium leading-tight',
-            done ? 'text-zinc-400' : 'text-zinc-100',
+            done ? 'text-zinc-500' : 'text-zinc-900',
           ].join(' ')}
         >
           {task.title}
