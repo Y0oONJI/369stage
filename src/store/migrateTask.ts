@@ -1,17 +1,46 @@
 import {
   emptyDirectionNotes,
   type ChecklistItem,
+  type DirectionNoteItem,
   type DirectionNotes,
   type Task,
 } from '../types/task'
+
+function migrateStageDirectionList(v: unknown): DirectionNoteItem[] {
+  if (typeof v === 'string') {
+    if (!v.trim()) return []
+    const now = new Date().toISOString()
+    return [
+      {
+        id: crypto.randomUUID(),
+        text: v.trim(),
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]
+  }
+  if (!Array.isArray(v)) return []
+  const out: DirectionNoteItem[] = []
+  for (const item of v) {
+    if (!item || typeof item !== 'object') continue
+    const i = item as Record<string, unknown>
+    const id = typeof i.id === 'string' ? i.id : crypto.randomUUID()
+    const text = typeof i.text === 'string' ? i.text : ''
+    const createdAt =
+      typeof i.createdAt === 'string' ? i.createdAt : new Date().toISOString()
+    const updatedAt =
+      typeof i.updatedAt === 'string' ? i.updatedAt : createdAt
+    out.push({ id, text, createdAt, updatedAt })
+  }
+  return out
+}
 
 function parseDirectionNotes(raw: unknown): DirectionNotes {
   const base = emptyDirectionNotes()
   if (!raw || typeof raw !== 'object') return base
   const o = raw as Record<string, unknown>
   for (const s of [30, 60, 90] as const) {
-    const v = o[String(s)]
-    if (typeof v === 'string') base[s] = v
+    base[s] = migrateStageDirectionList(o[String(s)])
   }
   return base
 }

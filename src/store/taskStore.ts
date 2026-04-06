@@ -4,6 +4,7 @@ import { isStageComplete, nextStage } from '../lib/gates'
 import {
   emptyDirectionNotes,
   type ChecklistItem,
+  type DirectionNoteItem,
   type Stage,
   type Task,
 } from '../types/task'
@@ -34,7 +35,14 @@ interface TaskStore {
     patch: Partial<Pick<ChecklistItem, 'text' | 'checked'>>,
   ) => void
   removeChecklistItem: (taskId: string, itemId: string) => void
-  setDirectionNote: (taskId: string, stage: Stage, text: string) => void
+  addDirectionNoteItem: (taskId: string, stage: Stage) => string
+  saveDirectionNoteItem: (
+    taskId: string,
+    stage: Stage,
+    itemId: string,
+    text: string,
+  ) => void
+  removeDirectionNoteItem: (taskId: string, stage: Stage, itemId: string) => void
 }
 
 const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
@@ -166,7 +174,15 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
     }))
   },
 
-  setDirectionNote: (taskId, stage, text) => {
+  addDirectionNoteItem: (taskId, stage) => {
+    const nid = newId()
+    const now = new Date().toISOString()
+    const item: DirectionNoteItem = {
+      id: nid,
+      text: '',
+      createdAt: now,
+      updatedAt: now,
+    }
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== taskId || t.status !== 'active') return t
@@ -174,7 +190,44 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
           ...t,
           directionNotes: {
             ...t.directionNotes,
-            [stage]: text,
+            [stage]: [...t.directionNotes[stage], item],
+          },
+        }
+      }),
+    }))
+    return nid
+  },
+
+  saveDirectionNoteItem: (taskId, stage, itemId, text) => {
+    const trimmed = text
+    const now = new Date().toISOString()
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        if (t.id !== taskId || t.status !== 'active') return t
+        return {
+          ...t,
+          directionNotes: {
+            ...t.directionNotes,
+            [stage]: t.directionNotes[stage].map((n) =>
+              n.id === itemId
+                ? { ...n, text: trimmed, updatedAt: now }
+                : n,
+            ),
+          },
+        }
+      }),
+    }))
+  },
+
+  removeDirectionNoteItem: (taskId, stage, itemId) => {
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        if (t.id !== taskId || t.status !== 'active') return t
+        return {
+          ...t,
+          directionNotes: {
+            ...t.directionNotes,
+            [stage]: t.directionNotes[stage].filter((n) => n.id !== itemId),
           },
         }
       }),

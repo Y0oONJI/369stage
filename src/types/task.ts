@@ -14,11 +14,19 @@ export interface ChecklistItem {
   checked: boolean
 }
 
-/** 단계(30·60·90)별 메모 — 최종 체크리스트와 별개 */
-export type DirectionNotes = Record<Stage, string>
+/** 단계별 디렉션 노트 한 줄(저장 단위) */
+export interface DirectionNoteItem {
+  id: string
+  text: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 단계(30·60·90)별 노트 목록 — 최종 체크리스트와 별개 */
+export type DirectionNotes = Record<Stage, DirectionNoteItem[]>
 
 export function emptyDirectionNotes(): DirectionNotes {
-  return { 30: '', 60: '', 90: '' }
+  return { 30: [], 60: [], 90: [] }
 }
 
 /** 90% → 완료(100%) 전환 시에만 쓰는 최종 체크리스트 */
@@ -29,7 +37,7 @@ export interface Task {
   description: string
   /** 목표일 등, `YYYY-MM-DD`. 없으면 빈 문자열 */
   dueDate: string
-  /** 단계별 디렉션(메모). 체크리스트와 무관 */
+  /** 단계별 디렉션 노트 목록 */
   directionNotes: DirectionNotes
   status: 'active' | 'done'
   currentStage: Stage

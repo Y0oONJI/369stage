@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { isStageComplete } from '../lib/gates'
 import { useTaskStore } from '../store/taskStore'
-import { STAGES, STAGE_LABELS, type ChecklistItem, type Stage, type Task } from '../types/task'
+import type { ChecklistItem, Stage, Task } from '../types/task'
+import { DirectionNoteList } from './DirectionNoteList'
 import { StageStepper } from './StageStepper'
 
 /** 체크리스트 문구는 타이핑마다 스토어를 갱신하지 않고 blur 시에만 반영 (입력 지연 완화) */
@@ -32,47 +33,6 @@ function ChecklistItemTextInput({
   )
 }
 
-/** 디렉션은 타이핑마다 스토어 갱신하지 않고 blur 시 반영 */
-function DirectionBlurField({
-  label,
-  value,
-  disabled,
-  onCommit,
-}: {
-  label: string
-  value: string
-  disabled: boolean
-  onCommit: (text: string) => void
-}) {
-  const [draft, setDraft] = useState(value)
-
-  if (disabled) {
-    return (
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-zinc-500">{label}</p>
-        <div className="min-h-[3rem] whitespace-pre-wrap rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-200">
-          {value.trim() ? value : '—'}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-zinc-500">{label}</label>
-      <textarea
-        className="min-h-[80px] w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm leading-relaxed text-zinc-800 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:placeholder:text-zinc-600 dark:focus:border-zinc-600"
-        value={draft}
-        placeholder="이 단계에서의 방향·기준·메모"
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          if (draft !== value) onCommit(draft)
-        }}
-      />
-    </div>
-  )
-}
-
 type Props = {
   task: Task
 }
@@ -85,7 +45,9 @@ export function TaskDetail({ task }: Props) {
   const addChecklistItem = useTaskStore((s) => s.addChecklistItem)
   const updateChecklistItem = useTaskStore((s) => s.updateChecklistItem)
   const removeChecklistItem = useTaskStore((s) => s.removeChecklistItem)
-  const setDirectionNote = useTaskStore((s) => s.setDirectionNote)
+  const addDirectionNoteItem = useTaskStore((s) => s.addDirectionNoteItem)
+  const saveDirectionNoteItem = useTaskStore((s) => s.saveDirectionNoteItem)
+  const removeDirectionNoteItem = useTaskStore((s) => s.removeDirectionNoteItem)
 
   const [viewStage, setViewStage] = useState<Stage>(() => task.currentStage)
   const [newItem, setNewItem] = useState('')
@@ -118,8 +80,10 @@ export function TaskDetail({ task }: Props) {
   const showEmptyHint =
     editable && atFinalGate && viewStage === 90 && items.length === 0
 
+  /** 90% 탭에서만 최종 체크리스트 표시 */
   const showChecklistPanel =
-    (isDone && items.length > 0) || (editable && atFinalGate && viewStage === 90)
+    viewStage === 90 &&
+    ((isDone && items.length > 0) || (editable && atFinalGate))
 
   function startMetaEdit() {
     setDraftTitle(task.title)
@@ -262,21 +226,23 @@ export function TaskDetail({ task }: Props) {
           disabled={false}
         />
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">단계별 디렉션</h2>
-          <p className="text-[11px] text-zinc-500">
-            30·60·90 각 단계의 메모입니다. 최종 체크리스트(90%→100%)와는 별도입니다.
-          </p>
-          {STAGES.map((stage) => (
-            <DirectionBlurField
-              key={`${stage}-${task.directionNotes[stage]}`}
-              label={`${stage}% · ${STAGE_LABELS[stage]}`}
-              value={task.directionNotes[stage]}
-              disabled={isDone}
-              onCommit={(text) => setDirectionNote(task.id, stage, text)}
-            />
-          ))}
-        </section>
+        <p className="text-[11px] text-zinc-500">
+          위에서 단계를 바꾸면 그 단계의 디렉션 목록만 보입니다. 90%를 선택하면 디렉션과 최종 체크리스트가 함께 보입니다.
+        </p>
+
+        <DirectionNoteList
+          key={`${task.id}-${viewStage}`}
+          stage={viewStage}
+          items={task.directionNotes[viewStage]}
+          readOnly={isDone}
+          onAdd={() => addDirectionNoteItem(task.id, viewStage)}
+          onSave={(itemId, text) =>
+            saveDirectionNoteItem(task.id, viewStage, itemId, text)
+          }
+          onRemove={(itemId) =>
+            removeDirectionNoteItem(task.id, viewStage, itemId)
+          }
+        />
 
         {!isDone && viewStage !== 90 && viewStage === task.currentStage && (
           <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
@@ -379,7 +345,7 @@ export function TaskDetail({ task }: Props) {
           </section>
         )}
 
-        {isDone && items.length === 0 && (
+        {isDone && viewStage === 90 && items.length === 0 && (
           <p className="text-sm text-zinc-500">저장된 최종 체크리스트 항목이 없습니다.</p>
         )}
 
