@@ -1,6 +1,6 @@
 import { create, type StateCreator } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
-import { createDebouncedLocalStorage } from '../lib/debouncedLocalStorage'
+import { persist } from 'zustand/middleware'
+import { createDebouncedPersistStorage } from '../lib/debouncedPersistStorage'
 import { isStageComplete, nextStage } from '../lib/gates'
 import {
   emptyDirectionNotes,
@@ -19,7 +19,7 @@ function newId(): string {
   return crypto.randomUUID()
 }
 
-interface TaskStore {
+export interface TaskStore {
   tasks: Task[]
   addTask: (title: string, description: string, dueDate: string) => string
   updateTask: (
@@ -240,7 +240,7 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
 export const useTaskStore = create<TaskStore>()(
   persist(createTaskSlice, {
     name: '369stage-tasks',
-    storage: createJSONStorage(() => createDebouncedLocalStorage(400)),
+    storage: createDebouncedPersistStorage(400),
     partialize: (state) => ({ tasks: state.tasks }),
     merge: (persisted, current) => {
       const p = persisted as Partial<Pick<TaskStore, 'tasks'>> | undefined

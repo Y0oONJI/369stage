@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { isStageComplete } from '../lib/gates'
 import { useTaskStore } from '../store/taskStore'
-import type { ChecklistItem, Stage } from '../types/task'
+import type { TaskStore } from '../store/taskStore'
+import type { ChecklistItem, Stage, Task } from '../types/task'
 import { DirectionNoteList } from './DirectionNoteList'
 import { StageStepper } from './StageStepper'
 
@@ -34,103 +35,35 @@ function ChecklistItemTextInput({
   )
 }
 
-type Props = {
-  taskId: string
-}
-
-export function TaskDetail({ taskId }: Props) {
-  const {
-    task,
-    advanceStage,
-    markDone,
-    updateTask,
-    deleteTask,
-    addChecklistItem,
-    updateChecklistItem,
-    removeChecklistItem,
-    addDirectionNoteItem,
-    saveDirectionNoteItem,
-    removeDirectionNoteItem,
-  } = useTaskStore(
-    useShallow((s) => {
-      const t = s.tasks.find((x) => x.id === taskId)
-      return {
-        task: t,
-        advanceStage: s.advanceStage,
-        markDone: s.markDone,
-        updateTask: s.updateTask,
-        deleteTask: s.deleteTask,
-        addChecklistItem: s.addChecklistItem,
-        updateChecklistItem: s.updateChecklistItem,
-        removeChecklistItem: s.removeChecklistItem,
-        addDirectionNoteItem: s.addDirectionNoteItem,
-        saveDirectionNoteItem: s.saveDirectionNoteItem,
-        removeDirectionNoteItem: s.removeDirectionNoteItem,
-      }
-    }),
-  )
-
-  const [viewStage, setViewStage] = useState<Stage>(() => {
-    return (
-      useTaskStore.getState().tasks.find((x) => x.id === taskId)?.currentStage ??
-      30
-    )
-  })
-
-  const [newItem, setNewItem] = useState('')
-
+/** 제목·본문·날짜 로컬 state — 타이핑 시 이 패널만 리렌더(스크롤 영역은 본문과 동일) */
+function TaskMetaPanel({
+  task,
+  updateTask,
+  deleteTask,
+  children,
+}: {
+  task: Task
+  updateTask: TaskStore['updateTask']
+  deleteTask: TaskStore['deleteTask']
+  children: ReactNode
+}) {
   const [editingMeta, setEditingMeta] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
   const [draftDesc, setDraftDesc] = useState('')
   const [draftDueDate, setDraftDueDate] = useState('')
 
-  if (!task) {
-    return (
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
-        <p className="text-sm text-zinc-500">작업을 찾을 수 없습니다.</p>
-      </main>
-    )
-  }
-
-  const cur = task
-
-  const isDone = cur.status === 'done'
+  const isDone = task.status === 'done'
   const editable = !isDone
-  const items = cur.checklist
-  const gateOk = isStageComplete(items)
-
-  const atFinalGate = cur.currentStage === 90
-  const canEditChecklist = editable && atFinalGate && viewStage === 90
-
-  const canAdvance =
-    editable && viewStage === cur.currentStage && cur.currentStage !== 90
-
-  const canMarkDone =
-    editable &&
-    viewStage === cur.currentStage &&
-    atFinalGate &&
-    gateOk
-
-  const showGateHint =
-    editable && atFinalGate && viewStage === 90 && !gateOk && items.length > 0
-
-  const showEmptyHint =
-    editable && atFinalGate && viewStage === 90 && items.length === 0
-
-  /** 90% 탭에서만 최종 체크리스트 표시 */
-  const showChecklistPanel =
-    viewStage === 90 &&
-    ((isDone && items.length > 0) || (editable && atFinalGate))
 
   function startMetaEdit() {
-    setDraftTitle(cur.title)
-    setDraftDesc(cur.description)
-    setDraftDueDate(cur.dueDate)
+    setDraftTitle(task.title)
+    setDraftDesc(task.description)
+    setDraftDueDate(task.dueDate)
     setEditingMeta(true)
   }
 
   function saveMeta() {
-    updateTask(cur.id, {
+    updateTask(task.id, {
       title: draftTitle,
       description: draftDesc,
       dueDate: draftDueDate,
@@ -144,13 +77,13 @@ export function TaskDetail({ taskId }: Props) {
 
   function handleDelete() {
     if (!confirm('이 작업을 삭제할까요?')) return
-    deleteTask(cur.id)
+    deleteTask(task.id)
   }
 
-  const dueLabel = formatDueDateLabel(cur.dueDate)
+  const dueLabel = formatDueDateLabel(task.dueDate)
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+    <>
       <header className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800/80">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -163,7 +96,7 @@ export function TaskDetail({ taskId }: Props) {
               />
             ) : (
               <h1 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {cur.title}
+                {task.title}
               </h1>
             )}
             {isDone && (
@@ -247,7 +180,7 @@ export function TaskDetail({ taskId }: Props) {
               <div>
                 <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">본문</p>
                 <div className="min-h-[2rem] whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-                  {cur.description.trim() ? cur.description : (
+                  {task.description.trim() ? task.description : (
                     <span className="text-zinc-400 dark:text-zinc-500">본문 없음</span>
                   )}
                 </div>
@@ -255,158 +188,290 @@ export function TaskDetail({ taskId }: Props) {
             </>
           )}
         </div>
+        {children}
+      </div>
+    </>
+  )
+}
 
-        <StageStepper
-          currentStage={cur.currentStage}
-          viewStage={viewStage}
-          onSelectStage={setViewStage}
-          disabled={false}
-        />
+type BodyProps = {
+  task: Task
+  taskId: string
+  advanceStage: TaskStore['advanceStage']
+  markDone: TaskStore['markDone']
+  addChecklistItem: TaskStore['addChecklistItem']
+  updateChecklistItem: TaskStore['updateChecklistItem']
+  removeChecklistItem: TaskStore['removeChecklistItem']
+  addDirectionNoteItem: TaskStore['addDirectionNoteItem']
+  saveDirectionNoteItem: TaskStore['saveDirectionNoteItem']
+  removeDirectionNoteItem: TaskStore['removeDirectionNoteItem']
+}
 
-        <p className="text-[11px] text-zinc-500">
-          위에서 단계를 바꾸면 그 단계의 디렉션 목록만 보입니다. 90%를 선택하면 디렉션과 최종 체크리스트가 함께 보입니다.
+/** 단계·디렉션·체크리스트 로컬 state — 타이핑 시 헤더와 분리된 리렌더 */
+const TaskDetailBody = memo(function TaskDetailBody({
+  task: cur,
+  taskId,
+  advanceStage,
+  markDone,
+  addChecklistItem,
+  updateChecklistItem,
+  removeChecklistItem,
+  addDirectionNoteItem,
+  saveDirectionNoteItem,
+  removeDirectionNoteItem,
+}: BodyProps) {
+  const [viewStage, setViewStage] = useState<Stage>(() => {
+    return (
+      useTaskStore.getState().tasks.find((x) => x.id === taskId)?.currentStage ??
+      30
+    )
+  })
+
+  const [newItem, setNewItem] = useState('')
+
+  const isDone = cur.status === 'done'
+  const editable = !isDone
+  const items = cur.checklist
+  const gateOk = isStageComplete(items)
+
+  const atFinalGate = cur.currentStage === 90
+  const canEditChecklist = editable && atFinalGate && viewStage === 90
+
+  const canAdvance =
+    editable && viewStage === cur.currentStage && cur.currentStage !== 90
+
+  const canMarkDone =
+    editable &&
+    viewStage === cur.currentStage &&
+    atFinalGate &&
+    gateOk
+
+  const showGateHint =
+    editable && atFinalGate && viewStage === 90 && !gateOk && items.length > 0
+
+  const showEmptyHint =
+    editable && atFinalGate && viewStage === 90 && items.length === 0
+
+  const showChecklistPanel =
+    viewStage === 90 &&
+    ((isDone && items.length > 0) || (editable && atFinalGate))
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <StageStepper
+        currentStage={cur.currentStage}
+        viewStage={viewStage}
+        onSelectStage={setViewStage}
+        disabled={false}
+      />
+
+      <p className="text-[11px] text-zinc-500">
+        위에서 단계를 바꾸면 그 단계의 디렉션 목록만 보입니다. 90%를 선택하면 디렉션과 최종 체크리스트가 함께 보입니다.
+      </p>
+
+      <DirectionNoteList
+        key={`${cur.id}-${viewStage}`}
+        stage={viewStage}
+        items={cur.directionNotes[viewStage]}
+        readOnly={isDone}
+        onAdd={() => addDirectionNoteItem(cur.id, viewStage)}
+        onSave={(itemId, text) =>
+          saveDirectionNoteItem(cur.id, viewStage, itemId, text)
+        }
+        onRemove={(itemId) =>
+          removeDirectionNoteItem(cur.id, viewStage, itemId)
+        }
+      />
+
+      {!isDone && viewStage !== 90 && viewStage === cur.currentStage && (
+        <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
+          이 단계는 체크리스트 없이 진행합니다. 방향·구조를 점검한 뒤 다음 단계로 이동하세요.
         </p>
+      )}
 
-        <DirectionNoteList
-          key={`${cur.id}-${viewStage}`}
-          stage={viewStage}
-          items={cur.directionNotes[viewStage]}
-          readOnly={isDone}
-          onAdd={() => addDirectionNoteItem(cur.id, viewStage)}
-          onSave={(itemId, text) =>
-            saveDirectionNoteItem(cur.id, viewStage, itemId, text)
-          }
-          onRemove={(itemId) =>
-            removeDirectionNoteItem(cur.id, viewStage, itemId)
-          }
-        />
+      {!isDone && viewStage === 90 && cur.currentStage < 90 && (
+        <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
+          최종 체크리스트는 90% 단계에 도달한 뒤에 진행됩니다.
+        </p>
+      )}
 
-        {!isDone && viewStage !== 90 && viewStage === cur.currentStage && (
-          <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
-            이 단계는 체크리스트 없이 진행합니다. 방향·구조를 점검한 뒤 다음 단계로 이동하세요.
-          </p>
-        )}
+      {!isDone && viewStage < cur.currentStage && viewStage !== 90 && (
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-600">이전 단계 (체크리스트 없음)</p>
+      )}
 
-        {!isDone && viewStage === 90 && cur.currentStage < 90 && (
-          <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
-            최종 체크리스트는 90% 단계에 도달한 뒤에 진행됩니다.
-          </p>
-        )}
+      {showChecklistPanel && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              {isDone ? '완료 전 최종 확인 (90% → 100%)' : '최종 체크리스트 (90% → 100%)'}
+            </h2>
+            {isDone && <span className="text-[11px] text-zinc-500">읽기 전용</span>}
+          </div>
 
-        {!isDone && viewStage < cur.currentStage && viewStage !== 90 && (
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-600">이전 단계 (체크리스트 없음)</p>
-        )}
+          {showEmptyHint && (
+            <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-500">
+              항목을 추가한 뒤 모두 체크해야 작업을 완료할 수 있습니다.
+            </p>
+          )}
 
-        {showChecklistPanel && (
-          <section className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                {isDone ? '완료 전 최종 확인 (90% → 100%)' : '최종 체크리스트 (90% → 100%)'}
-              </h2>
-              {isDone && <span className="text-[11px] text-zinc-500">읽기 전용</span>}
-            </div>
-
-            {showEmptyHint && (
-              <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-500">
-                항목을 추가한 뒤 모두 체크해야 작업을 완료할 수 있습니다.
-              </p>
-            )}
-
-            <ul className="flex flex-col gap-1">
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  className="group flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800/80 dark:bg-zinc-900/40"
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    disabled={!canEditChecklist}
-                    onChange={() =>
-                      updateChecklistItem(cur.id, item.id, {
-                        checked: !item.checked,
-                      })
-                    }
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 bg-white accent-indigo-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900"
-                  />
-                  <ChecklistItemTextInput
-                    key={`${item.id}-${item.text}`}
-                    item={item}
-                    disabled={!canEditChecklist}
-                    onCommit={(text) =>
-                      updateChecklistItem(cur.id, item.id, { text })
-                    }
-                  />
-                  {canEditChecklist && (
-                    <button
-                      type="button"
-                      onClick={() => removeChecklistItem(cur.id, item.id)}
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-zinc-500 opacity-0 hover:text-zinc-800 group-hover:opacity-100 dark:hover:text-zinc-300"
-                    >
-                      제거
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-
-            {canEditChecklist && (
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  addChecklistItem(cur.id, newItem)
-                  setNewItem('')
-                }}
+          <ul className="flex flex-col gap-1">
+            {items.map((item) => (
+              <li
+                key={item.id}
+                className="group flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800/80 dark:bg-zinc-900/40"
               >
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:placeholder:text-zinc-600 dark:focus:border-zinc-600"
-                  value={newItem}
-                  onChange={(e) => setNewItem(e.target.value)}
-                  placeholder="새 체크리스트 항목"
+                  type="checkbox"
+                  checked={item.checked}
+                  disabled={!canEditChecklist}
+                  onChange={() =>
+                    updateChecklistItem(cur.id, item.id, {
+                      checked: !item.checked,
+                    })
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 bg-white accent-indigo-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900"
                 />
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-800 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                >
-                  추가
-                </button>
-              </form>
-            )}
+                <ChecklistItemTextInput
+                  key={`${item.id}-${item.text}`}
+                  item={item}
+                  disabled={!canEditChecklist}
+                  onCommit={(text) =>
+                    updateChecklistItem(cur.id, item.id, { text })
+                  }
+                />
+                {canEditChecklist && (
+                  <button
+                    type="button"
+                    onClick={() => removeChecklistItem(cur.id, item.id)}
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-zinc-500 opacity-0 hover:text-zinc-800 group-hover:opacity-100 dark:hover:text-zinc-300"
+                  >
+                    제거
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
 
-            {showGateHint && (
-              <p className="text-xs text-zinc-500">
-                작업을 완료하려면 위 항목을 모두 체크하세요.
-              </p>
-            )}
-          </section>
-        )}
-
-        {isDone && viewStage === 90 && items.length === 0 && (
-          <p className="text-sm text-zinc-500">저장된 최종 체크리스트 항목이 없습니다.</p>
-        )}
-
-        <div className="mt-auto flex flex-wrap gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800/80">
-          {canAdvance && (
-            <button
-              type="button"
-              onClick={() => advanceStage(cur.id)}
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          {canEditChecklist && (
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                addChecklistItem(cur.id, newItem)
+                setNewItem('')
+              }}
             >
-              다음 단계로
-            </button>
+              <input
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:placeholder:text-zinc-600 dark:focus:border-zinc-600"
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                placeholder="새 체크리스트 항목"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-800 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              >
+                추가
+              </button>
+            </form>
           )}
-          {canMarkDone && (
-            <button
-              type="button"
-              onClick={() => markDone(cur.id)}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-            >
-              작업 완료 (100%)
-            </button>
+
+          {showGateHint && (
+            <p className="text-xs text-zinc-500">
+              작업을 완료하려면 위 항목을 모두 체크하세요.
+            </p>
           )}
-        </div>
+        </section>
+      )}
+
+      {isDone && viewStage === 90 && items.length === 0 && (
+        <p className="text-sm text-zinc-500">저장된 최종 체크리스트 항목이 없습니다.</p>
+      )}
+
+      <div className="mt-auto flex flex-wrap gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800/80">
+        {canAdvance && (
+          <button
+            type="button"
+            onClick={() => advanceStage(cur.id)}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          >
+            다음 단계로
+          </button>
+        )}
+        {canMarkDone && (
+          <button
+            type="button"
+            onClick={() => markDone(cur.id)}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+          >
+            작업 완료 (100%)
+          </button>
+        )}
       </div>
+    </div>
+  )
+})
+
+type Props = {
+  taskId: string
+}
+
+export function TaskDetail({ taskId }: Props) {
+  const {
+    task,
+    advanceStage,
+    markDone,
+    updateTask,
+    deleteTask,
+    addChecklistItem,
+    updateChecklistItem,
+    removeChecklistItem,
+    addDirectionNoteItem,
+    saveDirectionNoteItem,
+    removeDirectionNoteItem,
+  } = useTaskStore(
+    useShallow((s) => {
+      const t = s.tasks.find((x) => x.id === taskId)
+      return {
+        task: t,
+        advanceStage: s.advanceStage,
+        markDone: s.markDone,
+        updateTask: s.updateTask,
+        deleteTask: s.deleteTask,
+        addChecklistItem: s.addChecklistItem,
+        updateChecklistItem: s.updateChecklistItem,
+        removeChecklistItem: s.removeChecklistItem,
+        addDirectionNoteItem: s.addDirectionNoteItem,
+        saveDirectionNoteItem: s.saveDirectionNoteItem,
+        removeDirectionNoteItem: s.removeDirectionNoteItem,
+      }
+    }),
+  )
+
+  if (!task) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+        <p className="text-sm text-zinc-500">작업을 찾을 수 없습니다.</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+      <TaskMetaPanel task={task} updateTask={updateTask} deleteTask={deleteTask}>
+        <TaskDetailBody
+          task={task}
+          taskId={taskId}
+          advanceStage={advanceStage}
+          markDone={markDone}
+          addChecklistItem={addChecklistItem}
+          updateChecklistItem={updateChecklistItem}
+          removeChecklistItem={removeChecklistItem}
+          addDirectionNoteItem={addDirectionNoteItem}
+          saveDirectionNoteItem={saveDirectionNoteItem}
+          removeDirectionNoteItem={removeDirectionNoteItem}
+        />
+      </TaskMetaPanel>
     </main>
   )
 }

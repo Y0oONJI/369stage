@@ -1,7 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { useTaskStore } from '../store/taskStore'
-import type { Task } from '../types/task'
 import { ProgressDots } from './ProgressDots'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -12,10 +11,14 @@ type Props = {
 }
 
 export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
-  const tasks = useTaskStore(useShallow((s) => s.tasks))
-
-  const active = tasks.filter((t) => t.status === 'active')
-  const completed = tasks.filter((t) => t.status === 'done')
+  /** 제목 등 내용이 바뀌어도 id·status만 같으면 사이드바 전체 리렌더 생략 */
+  const activeIds = useTaskStore(
+    useShallow((s) => s.tasks.filter((t) => t.status === 'active').map((t) => t.id)),
+  )
+  const completedIds = useTaskStore(
+    useShallow((s) => s.tasks.filter((t) => t.status === 'done').map((t) => t.id)),
+  )
+  const totalCount = activeIds.length + completedIds.length
 
   return (
     <aside className="flex w-full max-w-sm flex-col border-r border-zinc-200 bg-white dark:border-zinc-800/80 dark:bg-zinc-950">
@@ -34,32 +37,32 @@ export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3">
-        {tasks.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-zinc-500">
             작업이 없습니다. 새 작업을 추가하세요.
           </p>
         ) : (
           <>
-            {active.length > 0 && (
+            {activeIds.length > 0 && (
               <Section label="진행 중">
-                {active.map((t) => (
+                {activeIds.map((id) => (
                   <TaskRow
-                    key={t.id}
-                    task={t}
-                    selected={t.id === selectedId}
-                    onSelect={() => onSelect(t.id)}
+                    key={id}
+                    taskId={id}
+                    selected={id === selectedId}
+                    onSelect={() => onSelect(id)}
                   />
                 ))}
               </Section>
             )}
-            {completed.length > 0 && (
+            {completedIds.length > 0 && (
               <Section label="완료">
-                {completed.map((t) => (
+                {completedIds.map((id) => (
                   <TaskRow
-                    key={t.id}
-                    task={t}
-                    selected={t.id === selectedId}
-                    onSelect={() => onSelect(t.id)}
+                    key={id}
+                    taskId={id}
+                    selected={id === selectedId}
+                    onSelect={() => onSelect(id)}
                   />
                 ))}
               </Section>
@@ -82,15 +85,19 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
+/** 해당 id 작업만 구독 — 다른 작업 편집 시 이 행은 리렌더되지 않음 */
 function TaskRow({
-  task,
+  taskId,
   selected,
   onSelect,
 }: {
-  task: Task
+  taskId: string
   selected: boolean
   onSelect: () => void
 }) {
+  const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId))
+  if (!task) return null
+
   const done = task.status === 'done'
   const dueLine = formatDueDateLabel(task.dueDate)
 
