@@ -61,7 +61,9 @@ Authorization: Bearer <VITE_API_SECRET>
     {
       "id": "uuid-or-string",
       "title": "제목",
-      "description": "설명",
+      "description": "본문",
+      "dueDate": "2026-04-15",
+      "directionNotes": { "30": "", "60": "", "90": "" },
       "status": "active",
       "currentStage": 30,
       "checklist": [
@@ -102,7 +104,9 @@ Content-Type: application/json
 |------|------|------|------|
 | `id` | `string` | ✓ | 고유 ID |
 | `title` | `string` | ✓ | 제목 |
-| `description` | `string` | ✓ | 설명 (빈 문자열 가능) |
+| `description` | `string` | ✓ | 본문 (빈 문자열 가능) |
+| `dueDate` | `string` | ✓ | 목표일 `YYYY-MM-DD`, 없으면 `""` |
+| `directionNotes` | 객체 | ✓ | 키 `"30"`, `"60"`, `"90"` 문자열 — 단계별 디렉션 메모 |
 | `status` | `'active' \| 'done'` | ✓ | 진행 중 / 완료 |
 | `currentStage` | `30 \| 60 \| 90` | ✓ | 현재 단계(%) |
 | `checklist` | 배열 | ✓ | 90% 완료 게이트용 항목들 |

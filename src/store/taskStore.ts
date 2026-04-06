@@ -1,8 +1,12 @@
 import { create, type StateCreator } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { hasRemote } from '../lib/remoteConfig'
 import { isStageComplete, nextStage } from '../lib/gates'
-import type { ChecklistItem, Task } from '../types/task'
+import {
+  emptyDirectionNotes,
+  type ChecklistItem,
+  type Stage,
+  type Task,
+} from '../types/task'
 import { migrateTasks } from './migrateTask'
 
 function emptyChecklist(): Task['checklist'] {
@@ -15,10 +19,10 @@ function newId(): string {
 
 interface TaskStore {
   tasks: Task[]
-  addTask: (title: string, description: string) => string
+  addTask: (title: string, description: string, dueDate: string) => string
   updateTask: (
     id: string,
-    patch: Partial<Pick<Task, 'title' | 'description'>>,
+    patch: Partial<Pick<Task, 'title' | 'description' | 'dueDate'>>,
   ) => void
   deleteTask: (id: string) => void
   advanceStage: (id: string) => void
@@ -30,17 +34,20 @@ interface TaskStore {
     patch: Partial<Pick<ChecklistItem, 'text' | 'checked'>>,
   ) => void
   removeChecklistItem: (taskId: string, itemId: string) => void
+  setDirectionNote: (taskId: string, stage: Stage, text: string) => void
 }
 
 const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
   tasks: [],
 
-  addTask: (title, description) => {
+  addTask: (title, description, dueDate) => {
     const id = newId()
     const task: Task = {
       id,
       title: title.trim() || '제목 없음',
       description: description.trim(),
+      dueDate: dueDate.trim(),
+      directionNotes: emptyDirectionNotes(),
       status: 'active',
       currentStage: 30,
       checklist: emptyChecklist(),
@@ -64,6 +71,10 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
                 patch.description !== undefined
                   ? patch.description.trim()
                   : t.description,
+              dueDate:
+                patch.dueDate !== undefined
+                  ? patch.dueDate.trim()
+                  : t.dueDate,
             }
           : t,
       ),
@@ -154,20 +165,35 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
       }),
     }))
   },
-})
 
-const persistedSlice = persist(createTaskSlice, {
-  name: '369stage-tasks',
-  merge: (persisted, current) => {
-    const p = persisted as Partial<TaskStore> | undefined
-    if (!p?.tasks) return current as TaskStore
-    return {
-      ...(current as TaskStore),
-      tasks: migrateTasks(p.tasks),
-    }
+  setDirectionNote: (taskId, stage, text) => {
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        if (t.id !== taskId || t.status !== 'active') return t
+        return {
+          ...t,
+          directionNotes: {
+            ...t.directionNotes,
+            [stage]: text,
+          },
+        }
+      }),
+    }))
   },
 })
 
+/** 원격 사용 여부와 관계없이 `tasks`는 localStorage에 백업 (저장 실패·새로고침 대비) */
 export const useTaskStore = create<TaskStore>()(
-  (hasRemote() ? createTaskSlice : persistedSlice) as StateCreator<TaskStore>,
+  persist(createTaskSlice, {
+    name: '369stage-tasks',
+    partialize: (state) => ({ tasks: state.tasks }),
+    merge: (persisted, current) => {
+      const p = persisted as Partial<Pick<TaskStore, 'tasks'>> | undefined
+      if (!p?.tasks) return current as TaskStore
+      return {
+        ...(current as TaskStore),
+        tasks: migrateTasks(p.tasks),
+      }
+    },
+  }),
 )

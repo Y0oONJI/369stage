@@ -13,14 +13,19 @@ export default function App() {
   const [remoteReady, setRemoteReady] = useState(!useRemote)
   const [remoteCanSave, setRemoteCanSave] = useState(!useRemote)
   const [remoteError, setRemoteError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
 
+  /** localStorage(persist) 복원 후에만 서버와 맞춤 — 빈 초기 상태로 서버를 덮어쓰는 레이스 완화 */
   useEffect(() => {
-    if (!useRemote) return
+    if (!useRemote) {
+      setRemoteReady(true)
+      return
+    }
     let cancelled = false
-    ;(async () => {
+    const runHydrate = async () => {
       try {
         await hydrateRemoteTasks()
         if (!cancelled) {
@@ -35,15 +40,28 @@ export default function App() {
       } finally {
         if (!cancelled) setRemoteReady(true)
       }
-    })()
+    }
+
+    const { persist } = useTaskStore
+    if (persist.hasHydrated()) {
+      void runHydrate()
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const unsub = persist.onFinishHydration(() => {
+      void runHydrate()
+    })
     return () => {
       cancelled = true
+      unsub()
     }
   }, [useRemote])
 
   useEffect(() => {
     if (!useRemote || !remoteReady || !remoteCanSave) return
-    return subscribeRemoteSave()
+    return subscribeRemoteSave((msg) => setSaveError(msg))
   }, [useRemote, remoteReady, remoteCanSave])
 
   const resolvedId = useMemo(() => {
@@ -70,6 +88,11 @@ export default function App() {
           원격 불러오기 실패: {remoteError} (로컬 편집은 계속됩니다)
         </div>
       )}
+      {saveError && (
+        <div className="fixed bottom-16 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-center text-xs text-red-900 dark:border-red-900/80 dark:bg-red-950/90 dark:text-red-200">
+          서버 저장 실패: {saveError}. 새로고침 전에 네트워크를 확인하세요. 데이터는 이 브라우저 localStorage에도 남습니다.
+        </div>
+      )}
 
       <TaskSidebar
         selectedId={resolvedId}
@@ -90,8 +113,8 @@ export default function App() {
       <NewTaskModal
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreate={(title, description) => {
-          const id = addTask(title, description)
+        onCreate={(title, description, dueDate) => {
+          const id = addTask(title, description, dueDate)
           setSelectedId(id)
         }}
       />

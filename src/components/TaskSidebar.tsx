@@ -1,3 +1,4 @@
+import { formatDueDateLabel } from '../lib/formatDueDate'
 import { useTaskStore } from '../store/taskStore'
 import type { Task } from '../types/task'
 import { ProgressDots } from './ProgressDots'
@@ -90,6 +91,7 @@ function TaskRow({
   onSelect: () => void
 }) {
   const done = task.status === 'done'
+  const dueLine = formatDueDateLabel(task.dueDate)
 
   return (
     <li>
@@ -109,6 +111,9 @@ function TaskRow({
         >
           {task.title}
         </span>
+        {dueLine && (
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{dueLine}</span>
+        )}
         <ProgressDots currentStage={task.currentStage} done={done} />
       </button>
     </li>

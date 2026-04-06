@@ -3,20 +3,22 @@ import { useState } from 'react'
 type Props = {
   open: boolean
   onClose: () => void
-  onCreate: (title: string, description: string) => void
+  onCreate: (title: string, description: string, dueDate: string) => void
 }
 
 export function NewTaskModal({ open, onClose, onCreate }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [dueDate, setDueDate] = useState('')
 
   if (!open) return null
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onCreate(title, description)
+    onCreate(title, description, dueDate)
     setTitle('')
     setDescription('')
+    setDueDate('')
     onClose()
   }
 
@@ -47,12 +49,21 @@ export function NewTaskModal({ open, onClose, onCreate }: Props) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-500">설명 (선택)</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-500">본문</label>
             <textarea
-              className="min-h-[80px] w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:focus:border-zinc-600"
+              className="min-h-[100px] w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:focus:border-zinc-600"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="목표, 제약, 참고 링크 등"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500">목표일</label>
+            <input
+              type="date"
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:border-zinc-600"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
