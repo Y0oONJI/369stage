@@ -1,6 +1,6 @@
 import type { ChecklistItem, Stage } from '../types/task'
 
-/** 한 단계를 통과로 보려면 항목이 하나 이상이고 모두 체크되어야 함 */
+/** 90% → 100% 최종 체크리스트: 항목 1개 이상 + 전부 체크 */
 export function isStageComplete(items: ChecklistItem[]): boolean {
   return items.length > 0 && items.every((i) => i.checked)
 }
