@@ -14,12 +14,20 @@ export interface ChecklistItem {
   checked: boolean
 }
 
-/** 90% → 완료(100%) 전환 시에만 쓰는 최종 체크리스트 */
+/** 단계별로 사용자가 직접 적는 ‘다른 사람 디렉션’ 메모 (DB 템플릿 체크리스트와 별개) */
+export type DirectionNotes = Record<Stage, string>
+
+export function emptyDirectionNotes(): DirectionNotes {
+  return { 30: '', 60: '', 90: '' }
+}
+
+/** 90% → 완료(100%) 최종 체크리스트 (템플릿에서 채울 항목 + 체크) */
 export interface Task {
   id: string
   title: string
   description: string
   status: 'active' | 'done'
   currentStage: Stage
+  directionNotes: DirectionNotes
   checklist: ChecklistItem[]
 }

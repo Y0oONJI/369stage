@@ -2,7 +2,8 @@ import { create, type StateCreator } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { hasRemote } from '../lib/remoteConfig'
 import { isStageComplete, nextStage } from '../lib/gates'
-import type { ChecklistItem, Task } from '../types/task'
+import type { ChecklistItem, Stage, Task } from '../types/task'
+import { emptyDirectionNotes } from '../types/task'
 import { migrateTasks } from './migrateTask'
 
 function emptyChecklist(): Task['checklist'] {
@@ -30,6 +31,7 @@ interface TaskStore {
     patch: Partial<Pick<ChecklistItem, 'text' | 'checked'>>,
   ) => void
   removeChecklistItem: (taskId: string, itemId: string) => void
+  setDirectionNote: (taskId: string, stage: Stage, text: string) => void
 }
 
 const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
@@ -43,6 +45,7 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
       description: description.trim(),
       status: 'active',
       currentStage: 30,
+      directionNotes: emptyDirectionNotes(),
       checklist: emptyChecklist(),
     }
     set((s) => ({ tasks: [task, ...s.tasks] }))
@@ -150,6 +153,22 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
         return {
           ...t,
           checklist: t.checklist.filter((i) => i.id !== itemId),
+        }
+      }),
+    }))
+  },
+
+  /** 단계별 디렉션 메모 (사용자 입력). 진행 중 작업만 수정 가능 */
+  setDirectionNote: (taskId, stage, text) => {
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        if (t.id !== taskId || t.status !== 'active') return t
+        return {
+          ...t,
+          directionNotes: {
+            ...t.directionNotes,
+            [stage]: text,
+          },
         }
       }),
     }))

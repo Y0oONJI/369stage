@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isStageComplete } from '../lib/gates'
 import { useTaskStore } from '../store/taskStore'
-import type { Stage, Task } from '../types/task'
+import { STAGE_LABELS, type Stage, type Task } from '../types/task'
 import { StageStepper } from './StageStepper'
 
 type Props = {
@@ -16,6 +16,7 @@ export function TaskDetail({ task }: Props) {
   const addChecklistItem = useTaskStore((s) => s.addChecklistItem)
   const updateChecklistItem = useTaskStore((s) => s.updateChecklistItem)
   const removeChecklistItem = useTaskStore((s) => s.removeChecklistItem)
+  const setDirectionNote = useTaskStore((s) => s.setDirectionNote)
 
   const [viewStage, setViewStage] = useState<Stage>(() => task.currentStage)
   const [draftTitle, setDraftTitle] = useState(() => task.title)
@@ -109,6 +110,22 @@ export function TaskDetail({ task }: Props) {
           disabled={false}
         />
 
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">
+            디렉션 (다른 사람) · {viewStage}% · {STAGE_LABELS[viewStage]}
+          </label>
+          <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+            이 단계에서 받은 피드백·디렉션을 직접 적어 저장합니다. (체크리스트와 별도)
+          </p>
+          <textarea
+            className="min-h-[96px] w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-600 disabled:cursor-not-allowed disabled:opacity-70"
+            value={task.directionNotes[viewStage]}
+            onChange={(e) => setDirectionNote(task.id, viewStage, e.target.value)}
+            disabled={!editable}
+            placeholder="예: 리뷰어 코멘트, 팀 디렉션 요약…"
+          />
+        </div>
+
         {!isDone && viewStage !== 90 && viewStage === task.currentStage && (
           <p className="rounded-lg border border-zinc-800/80 bg-zinc-900/30 px-3 py-2 text-sm text-zinc-500">
             이 단계는 체크리스트 없이 진행합니다. 방향·구조를 점검한 뒤 다음 단계로 이동하세요.
@@ -127,11 +144,16 @@ export function TaskDetail({ task }: Props) {
 
         {showChecklistPanel && (
           <section className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-sm font-medium text-zinc-200">
-                {isDone ? '완료 전 최종 확인 (90% → 100%)' : '최종 체크리스트 (90% → 100%)'}
-              </h2>
-              {isDone && <span className="text-[11px] text-zinc-500">읽기 전용</span>}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="text-sm font-medium text-zinc-200">
+                  {isDone ? '완료 전 최종 확인 (90% → 100%)' : '최종 체크리스트 (90% → 100%)'}
+                </h2>
+                {isDone && <span className="text-[11px] text-zinc-500">읽기 전용</span>}
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                항목은 이후 DB 템플릿에서 내려오는 구조에 맞춰 채웁니다. 지금은 직접 추가·체크해 사용할 수 있습니다.
+              </p>
             </div>
 
             {showEmptyHint && (
