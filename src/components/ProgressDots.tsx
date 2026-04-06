@@ -16,7 +16,7 @@ export function ProgressDots({ currentStage, done }: { currentStage: Stage; done
               ? 'bg-emerald-500/90'
               : i === currentIndex
                 ? 'bg-indigo-400'
-                : 'bg-zinc-800',
+                : 'bg-zinc-200 dark:bg-zinc-800',
           ].join(' ')}
         />
       ))}
