@@ -1,5 +1,6 @@
 import { create, type StateCreator } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { createDebouncedLocalStorage } from '../lib/debouncedLocalStorage'
 import { isStageComplete, nextStage } from '../lib/gates'
 import {
   emptyDirectionNotes,
@@ -239,6 +240,7 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
 export const useTaskStore = create<TaskStore>()(
   persist(createTaskSlice, {
     name: '369stage-tasks',
+    storage: createJSONStorage(() => createDebouncedLocalStorage(400)),
     partialize: (state) => ({ tasks: state.tasks }),
     merge: (persisted, current) => {
       const p = persisted as Partial<Pick<TaskStore, 'tasks'>> | undefined

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskSidebar } from './components/TaskSidebar'
@@ -6,7 +7,8 @@ import { hydrateRemoteTasks, isRemoteConfigured, subscribeRemoteSave } from './s
 import { useTaskStore } from './store/taskStore'
 
 export default function App() {
-  const tasks = useTaskStore((s) => s.tasks)
+  /** 작업 id 목록만 구독 — 다른 작업 내용이 바뀌어도 목록 길이·순서가 같으면 App 리렌더 생략 */
+  const taskIds = useTaskStore(useShallow((s) => s.tasks.map((t) => t.id)))
   const addTask = useTaskStore((s) => s.addTask)
 
   const useRemote = isRemoteConfigured()
@@ -65,13 +67,16 @@ export default function App() {
   }, [useRemote, remoteReady, remoteCanSave])
 
   const resolvedId = useMemo(() => {
-    if (selectedId != null && tasks.some((t) => t.id === selectedId)) {
+    if (selectedId != null && taskIds.includes(selectedId)) {
       return selectedId
     }
-    return tasks[0]?.id ?? null
-  }, [tasks, selectedId])
+    return taskIds[0] ?? null
+  }, [taskIds, selectedId])
 
-  const selected = resolvedId ? tasks.find((t) => t.id === resolvedId) : undefined
+  /** 선택 작업의 단계가 바뀔 때만 키 갱신(상세 리마운트) */
+  const selectedStage = useTaskStore((s) =>
+    resolvedId ? s.tasks.find((t) => t.id === resolvedId)?.currentStage : undefined,
+  )
 
   if (useRemote && !remoteReady) {
     return (
@@ -101,8 +106,11 @@ export default function App() {
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {selected ? (
-          <TaskDetail key={`${selected.id}-${selected.currentStage}`} task={selected} />
+        {resolvedId != null ? (
+          <TaskDetail
+            key={`${resolvedId}-${selectedStage ?? 30}`}
+            taskId={resolvedId}
+          />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">작업을 선택하거나 새 작업을 만드세요.</p>

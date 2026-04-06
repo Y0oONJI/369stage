@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { isStageComplete } from '../lib/gates'
 import { useTaskStore } from '../store/taskStore'
-import type { ChecklistItem, Stage, Task } from '../types/task'
+import type { ChecklistItem, Stage } from '../types/task'
 import { DirectionNoteList } from './DirectionNoteList'
 import { StageStepper } from './StageStepper'
 
@@ -34,22 +35,48 @@ function ChecklistItemTextInput({
 }
 
 type Props = {
-  task: Task
+  taskId: string
 }
 
-export function TaskDetail({ task }: Props) {
-  const advanceStage = useTaskStore((s) => s.advanceStage)
-  const markDone = useTaskStore((s) => s.markDone)
-  const updateTask = useTaskStore((s) => s.updateTask)
-  const deleteTask = useTaskStore((s) => s.deleteTask)
-  const addChecklistItem = useTaskStore((s) => s.addChecklistItem)
-  const updateChecklistItem = useTaskStore((s) => s.updateChecklistItem)
-  const removeChecklistItem = useTaskStore((s) => s.removeChecklistItem)
-  const addDirectionNoteItem = useTaskStore((s) => s.addDirectionNoteItem)
-  const saveDirectionNoteItem = useTaskStore((s) => s.saveDirectionNoteItem)
-  const removeDirectionNoteItem = useTaskStore((s) => s.removeDirectionNoteItem)
+export function TaskDetail({ taskId }: Props) {
+  const {
+    task,
+    advanceStage,
+    markDone,
+    updateTask,
+    deleteTask,
+    addChecklistItem,
+    updateChecklistItem,
+    removeChecklistItem,
+    addDirectionNoteItem,
+    saveDirectionNoteItem,
+    removeDirectionNoteItem,
+  } = useTaskStore(
+    useShallow((s) => {
+      const t = s.tasks.find((x) => x.id === taskId)
+      return {
+        task: t,
+        advanceStage: s.advanceStage,
+        markDone: s.markDone,
+        updateTask: s.updateTask,
+        deleteTask: s.deleteTask,
+        addChecklistItem: s.addChecklistItem,
+        updateChecklistItem: s.updateChecklistItem,
+        removeChecklistItem: s.removeChecklistItem,
+        addDirectionNoteItem: s.addDirectionNoteItem,
+        saveDirectionNoteItem: s.saveDirectionNoteItem,
+        removeDirectionNoteItem: s.removeDirectionNoteItem,
+      }
+    }),
+  )
 
-  const [viewStage, setViewStage] = useState<Stage>(() => task.currentStage)
+  const [viewStage, setViewStage] = useState<Stage>(() => {
+    return (
+      useTaskStore.getState().tasks.find((x) => x.id === taskId)?.currentStage ??
+      30
+    )
+  })
+
   const [newItem, setNewItem] = useState('')
 
   const [editingMeta, setEditingMeta] = useState(false)
@@ -57,20 +84,30 @@ export function TaskDetail({ task }: Props) {
   const [draftDesc, setDraftDesc] = useState('')
   const [draftDueDate, setDraftDueDate] = useState('')
 
-  const isDone = task.status === 'done'
+  if (!task) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+        <p className="text-sm text-zinc-500">작업을 찾을 수 없습니다.</p>
+      </main>
+    )
+  }
+
+  const cur = task
+
+  const isDone = cur.status === 'done'
   const editable = !isDone
-  const items = task.checklist
+  const items = cur.checklist
   const gateOk = isStageComplete(items)
 
-  const atFinalGate = task.currentStage === 90
+  const atFinalGate = cur.currentStage === 90
   const canEditChecklist = editable && atFinalGate && viewStage === 90
 
   const canAdvance =
-    editable && viewStage === task.currentStage && task.currentStage !== 90
+    editable && viewStage === cur.currentStage && cur.currentStage !== 90
 
   const canMarkDone =
     editable &&
-    viewStage === task.currentStage &&
+    viewStage === cur.currentStage &&
     atFinalGate &&
     gateOk
 
@@ -86,14 +123,14 @@ export function TaskDetail({ task }: Props) {
     ((isDone && items.length > 0) || (editable && atFinalGate))
 
   function startMetaEdit() {
-    setDraftTitle(task.title)
-    setDraftDesc(task.description)
-    setDraftDueDate(task.dueDate)
+    setDraftTitle(cur.title)
+    setDraftDesc(cur.description)
+    setDraftDueDate(cur.dueDate)
     setEditingMeta(true)
   }
 
   function saveMeta() {
-    updateTask(task.id, {
+    updateTask(cur.id, {
       title: draftTitle,
       description: draftDesc,
       dueDate: draftDueDate,
@@ -107,10 +144,10 @@ export function TaskDetail({ task }: Props) {
 
   function handleDelete() {
     if (!confirm('이 작업을 삭제할까요?')) return
-    deleteTask(task.id)
+    deleteTask(cur.id)
   }
 
-  const dueLabel = formatDueDateLabel(task.dueDate)
+  const dueLabel = formatDueDateLabel(cur.dueDate)
 
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -126,7 +163,7 @@ export function TaskDetail({ task }: Props) {
               />
             ) : (
               <h1 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {task.title}
+                {cur.title}
               </h1>
             )}
             {isDone && (
@@ -210,7 +247,7 @@ export function TaskDetail({ task }: Props) {
               <div>
                 <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">본문</p>
                 <div className="min-h-[2rem] whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-                  {task.description.trim() ? task.description : (
+                  {cur.description.trim() ? cur.description : (
                     <span className="text-zinc-400 dark:text-zinc-500">본문 없음</span>
                   )}
                 </div>
@@ -220,7 +257,7 @@ export function TaskDetail({ task }: Props) {
         </div>
 
         <StageStepper
-          currentStage={task.currentStage}
+          currentStage={cur.currentStage}
           viewStage={viewStage}
           onSelectStage={setViewStage}
           disabled={false}
@@ -231,32 +268,32 @@ export function TaskDetail({ task }: Props) {
         </p>
 
         <DirectionNoteList
-          key={`${task.id}-${viewStage}`}
+          key={`${cur.id}-${viewStage}`}
           stage={viewStage}
-          items={task.directionNotes[viewStage]}
+          items={cur.directionNotes[viewStage]}
           readOnly={isDone}
-          onAdd={() => addDirectionNoteItem(task.id, viewStage)}
+          onAdd={() => addDirectionNoteItem(cur.id, viewStage)}
           onSave={(itemId, text) =>
-            saveDirectionNoteItem(task.id, viewStage, itemId, text)
+            saveDirectionNoteItem(cur.id, viewStage, itemId, text)
           }
           onRemove={(itemId) =>
-            removeDirectionNoteItem(task.id, viewStage, itemId)
+            removeDirectionNoteItem(cur.id, viewStage, itemId)
           }
         />
 
-        {!isDone && viewStage !== 90 && viewStage === task.currentStage && (
+        {!isDone && viewStage !== 90 && viewStage === cur.currentStage && (
           <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
             이 단계는 체크리스트 없이 진행합니다. 방향·구조를 점검한 뒤 다음 단계로 이동하세요.
           </p>
         )}
 
-        {!isDone && viewStage === 90 && task.currentStage < 90 && (
+        {!isDone && viewStage === 90 && cur.currentStage < 90 && (
           <p className="rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900/30 dark:text-zinc-500">
             최종 체크리스트는 90% 단계에 도달한 뒤에 진행됩니다.
           </p>
         )}
 
-        {!isDone && viewStage < task.currentStage && viewStage !== 90 && (
+        {!isDone && viewStage < cur.currentStage && viewStage !== 90 && (
           <p className="text-[11px] text-zinc-500 dark:text-zinc-600">이전 단계 (체크리스트 없음)</p>
         )}
 
@@ -286,7 +323,7 @@ export function TaskDetail({ task }: Props) {
                     checked={item.checked}
                     disabled={!canEditChecklist}
                     onChange={() =>
-                      updateChecklistItem(task.id, item.id, {
+                      updateChecklistItem(cur.id, item.id, {
                         checked: !item.checked,
                       })
                     }
@@ -297,13 +334,13 @@ export function TaskDetail({ task }: Props) {
                     item={item}
                     disabled={!canEditChecklist}
                     onCommit={(text) =>
-                      updateChecklistItem(task.id, item.id, { text })
+                      updateChecklistItem(cur.id, item.id, { text })
                     }
                   />
                   {canEditChecklist && (
                     <button
                       type="button"
-                      onClick={() => removeChecklistItem(task.id, item.id)}
+                      onClick={() => removeChecklistItem(cur.id, item.id)}
                       className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-zinc-500 opacity-0 hover:text-zinc-800 group-hover:opacity-100 dark:hover:text-zinc-300"
                     >
                       제거
@@ -318,7 +355,7 @@ export function TaskDetail({ task }: Props) {
                 className="flex gap-2"
                 onSubmit={(e) => {
                   e.preventDefault()
-                  addChecklistItem(task.id, newItem)
+                  addChecklistItem(cur.id, newItem)
                   setNewItem('')
                 }}
               >
@@ -353,7 +390,7 @@ export function TaskDetail({ task }: Props) {
           {canAdvance && (
             <button
               type="button"
-              onClick={() => advanceStage(task.id)}
+              onClick={() => advanceStage(cur.id)}
               className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
             >
               다음 단계로
@@ -362,7 +399,7 @@ export function TaskDetail({ task }: Props) {
           {canMarkDone && (
             <button
               type="button"
-              onClick={() => markDone(task.id)}
+              onClick={() => markDone(cur.id)}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
             >
               작업 완료 (100%)

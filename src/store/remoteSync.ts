@@ -39,26 +39,33 @@ export function subscribeRemoteSave(
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null
   let lastSaved = JSON.stringify(useTaskStore.getState().tasks)
+  /** 같은 틱에 여러 번 set돼도 stringify·타이머 리셋은 한 번만 */
+  let microQueued = false
 
   const unsub = useTaskStore.subscribe(() => {
-    const tasks = useTaskStore.getState().tasks
-    const serialized = JSON.stringify(tasks)
-    if (serialized === lastSaved) return
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      timer = null
-      const latest = useTaskStore.getState().tasks
-      const snap = JSON.stringify(latest)
-      saveTasks(latest)
-        .then(() => {
-          lastSaved = snap
-          onSaveResult?.(null)
-        })
-        .catch((e) => {
-          console.error('[369stage] remote save failed', e)
-          onSaveResult?.(e instanceof Error ? e.message : String(e))
-        })
-    }, DEBOUNCE_MS)
+    if (microQueued) return
+    microQueued = true
+    queueMicrotask(() => {
+      microQueued = false
+      const tasks = useTaskStore.getState().tasks
+      const serialized = JSON.stringify(tasks)
+      if (serialized === lastSaved) return
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        const latest = useTaskStore.getState().tasks
+        const snap = JSON.stringify(latest)
+        saveTasks(latest)
+          .then(() => {
+            lastSaved = snap
+            onSaveResult?.(null)
+          })
+          .catch((e) => {
+            console.error('[369stage] remote save failed', e)
+            onSaveResult?.(e instanceof Error ? e.message : String(e))
+          })
+      }, DEBOUNCE_MS)
+    })
   })
 
   return () => {

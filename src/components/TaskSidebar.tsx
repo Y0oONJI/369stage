@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { formatDueDateLabel } from '../lib/formatDueDate'
 import { useTaskStore } from '../store/taskStore'
 import type { Task } from '../types/task'
@@ -11,7 +12,7 @@ type Props = {
 }
 
 export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
-  const tasks = useTaskStore((s) => s.tasks)
+  const tasks = useTaskStore(useShallow((s) => s.tasks))
 
   const active = tasks.filter((t) => t.status === 'active')
   const completed = tasks.filter((t) => t.status === 'done')
