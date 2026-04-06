@@ -13,15 +13,15 @@ export function ProgressDots({ currentStage, done }: { currentStage: Stage; done
           className={[
             'h-1.5 w-6 rounded-full transition-colors',
             done || i < currentIndex
-              ? 'bg-emerald-500'
+              ? 'bg-emerald-500 dark:bg-emerald-500/90'
               : i === currentIndex
-                ? 'bg-indigo-500'
-                : 'bg-zinc-200',
+                ? 'bg-indigo-500 dark:bg-indigo-400'
+                : 'bg-zinc-200 dark:bg-zinc-800',
           ].join(' ')}
         />
       ))}
       {done && (
-        <span className="ml-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600">
+        <span className="ml-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-500/90">
           Done
         </span>
       )}
