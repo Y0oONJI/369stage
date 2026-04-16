@@ -14,7 +14,7 @@
 
 - **프론트:** React 19, TypeScript, Vite 8, Tailwind CSS v4, Zustand
 - **스타일:** 라이트/다크 테마 — 사이드바 상단 **라이트 / 다크** 버튼, 선택값은 `localStorage` 키 `369stage-theme`에 저장됩니다. 첫 방문 시 OS 다크 모드 설정을 따릅니다.
-- **저장:** 원격 미설정 시 브라우저 `localStorage` (`369stage-tasks`) · 원격 설정 시 Cloudflare Worker API (`GET/PUT /tasks`)
+- **저장:** 원격 미설정 시 브라우저 `localStorage` (`369stage-tasks`) · 원격 설정 시 Cloudflare Worker API (`GET/PUT /tasks`). 원격 사용 시 **약 30초마다 서버를 다시 읽고**, **다른 탭/앱에 갔다가 돌아오면** 즉시 한 번 더 받아 여러 PC 간 변경이 화면에 반영되기 쉽다(실시간 푸시는 아님).
 
 ## 빠른 시작
 

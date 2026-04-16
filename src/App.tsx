@@ -3,7 +3,12 @@ import { useShallow } from 'zustand/react/shallow'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskSidebar } from './components/TaskSidebar'
-import { hydrateRemoteTasks, isRemoteConfigured, subscribeRemoteSave } from './store/remoteSync'
+import {
+  hydrateRemoteTasks,
+  isRemoteConfigured,
+  subscribeRemotePolling,
+  subscribeRemoteSave,
+} from './store/remoteSync'
 import { useTaskStore } from './store/taskStore'
 
 export default function App() {
@@ -65,6 +70,12 @@ export default function App() {
     if (!useRemote || !remoteReady || !remoteCanSave) return
     return subscribeRemoteSave((msg) => setSaveError(msg))
   }, [useRemote, remoteReady, remoteCanSave])
+
+  /** 다른 PC에서 PUT 된 내용을 주기·탭 복귀 시 서버에서 다시 받아옴 */
+  useEffect(() => {
+    if (!useRemote || !remoteReady) return
+    return subscribeRemotePolling()
+  }, [useRemote, remoteReady])
 
   const resolvedId = useMemo(() => {
     if (selectedId != null && taskIds.includes(selectedId)) {
