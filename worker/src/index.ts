@@ -1,6 +1,9 @@
 export interface Env {
   DB: D1Database
-  API_SECRET: string
+  SESSION_SIGNING_SECRET: string
+  ACCESS_CODE?: string
+  /** Optional sha256 hex of access code */
+  ACCESS_CODE_HASH?: string
   /** Comma-separated origins; if empty, allow any origin for preflight */
   CORS_ORIGINS?: string
 }
@@ -14,6 +17,12 @@ type TaskRow = {
   checklist_json: string
 }
 
+type SessionPayload = {
+  exp: number
+}
+
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
+
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get('Origin')
   const list = env.CORS_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? []
@@ -25,7 +34,7 @@ function corsHeaders(request: Request, env: Env): HeadersInit {
         : list[0] ?? '*'
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
   }
@@ -45,10 +54,125 @@ function badRequest(msg: string, request: Request, env: Env): Response {
   })
 }
 
-function verifyBearer(request: Request, secret: string): boolean {
+function serverError(msg: string, request: Request, env: Env): Response {
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' },
+  })
+}
+
+function jsonResponse(data: unknown, request: Request, env: Env, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' },
+  })
+}
+
+function methodNotAllowed(request: Request, env: Env): Response {
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' },
+  })
+}
+
+function extractBearerToken(request: Request): string | null {
   const h = request.headers.get('Authorization') ?? ''
   const m = /^Bearer\s+(.+)$/i.exec(h)
-  return Boolean(m && m[1] === secret)
+  return m?.[1]?.trim() || null
+}
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function fromBase64Url(input: string): Uint8Array | null {
+  try {
+    const base64 = input.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const binary = atob(padded)
+    const out = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i)
+    return out
+  } catch {
+    return null
+  }
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value)
+  const hash = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+async function isValidAccessCode(accessCode: string, env: Env): Promise<boolean> {
+  const normalized = accessCode.trim()
+  if (!normalized) return false
+
+  if (env.ACCESS_CODE_HASH?.trim()) {
+    const inputHash = await sha256Hex(normalized)
+    return constantTimeEqual(inputHash, env.ACCESS_CODE_HASH.trim().toLowerCase())
+  }
+
+  if (env.ACCESS_CODE?.trim()) {
+    return constantTimeEqual(normalized, env.ACCESS_CODE.trim())
+  }
+
+  return false
+}
+
+async function signHmacSha256(input: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(input))
+  return toBase64Url(new Uint8Array(sig))
+}
+
+async function createSessionToken(secret: string): Promise<{ token: string; exp: number }> {
+  const header = toBase64Url(new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })))
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS
+  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify({ exp } satisfies SessionPayload)))
+  const signingInput = `${header}.${payload}`
+  const signature = await signHmacSha256(signingInput, secret)
+  return { token: `${signingInput}.${signature}`, exp }
+}
+
+async function verifySessionToken(token: string, secret: string): Promise<SessionPayload | null> {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+
+  const [header, payload, signature] = parts
+  const expectedSig = await signHmacSha256(`${header}.${payload}`, secret)
+  if (!constantTimeEqual(signature, expectedSig)) return null
+
+  const payloadBytes = fromBase64Url(payload)
+  if (!payloadBytes) return null
+
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(payloadBytes)) as Partial<SessionPayload>
+    if (typeof parsed.exp !== 'number') return null
+    if (parsed.exp <= Math.floor(Date.now() / 1000)) return null
+    return { exp: parsed.exp }
+  } catch {
+    return null
+  }
 }
 
 function rowToTask(row: TaskRow) {
@@ -77,6 +201,37 @@ export default {
     }
 
     const url = new URL(request.url)
+    if (url.pathname === '/auth/session') {
+      if (request.method !== 'POST') return methodNotAllowed(request, env)
+      if (!env.SESSION_SIGNING_SECRET?.trim()) {
+        return serverError('Server misconfigured: missing SESSION_SIGNING_SECRET', request, env)
+      }
+      if (!env.ACCESS_CODE?.trim() && !env.ACCESS_CODE_HASH?.trim()) {
+        return serverError('Server misconfigured: missing ACCESS_CODE or ACCESS_CODE_HASH', request, env)
+      }
+
+      let body: unknown
+      try {
+        body = await request.json()
+      } catch {
+        return badRequest('Invalid JSON', request, env)
+      }
+      const accessCode =
+        body && typeof body === 'object' && 'accessCode' in body
+          ? (body as { accessCode?: unknown }).accessCode
+          : null
+      if (typeof accessCode !== 'string') {
+        return badRequest('Expected { accessCode: string }', request, env)
+      }
+
+      if (!(await isValidAccessCode(accessCode, env))) {
+        return unauthorized(request, env)
+      }
+
+      const { token, exp } = await createSessionToken(env.SESSION_SIGNING_SECRET)
+      return jsonResponse({ token, expiresAt: exp }, request, env)
+    }
+
     if (url.pathname !== '/tasks' && url.pathname !== '/tasks/') {
       return new Response(JSON.stringify({ error: 'Not Found' }), {
         status: 404,
@@ -84,16 +239,14 @@ export default {
       })
     }
 
-    if (!env.API_SECRET) {
-      return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-        status: 500,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json' },
-      })
+    if (!env.SESSION_SIGNING_SECRET?.trim()) {
+      return serverError('Server misconfigured: missing SESSION_SIGNING_SECRET', request, env)
     }
 
-    if (!verifyBearer(request, env.API_SECRET)) {
-      return unauthorized(request, env)
-    }
+    const token = extractBearerToken(request)
+    if (!token) return unauthorized(request, env)
+    const session = await verifySessionToken(token, env.SESSION_SIGNING_SECRET)
+    if (!session) return unauthorized(request, env)
 
     try {
       if (request.method === 'GET') {
@@ -156,10 +309,7 @@ export default {
         })
       }
 
-      return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-        status: 405,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json' },
-      })
+      return methodNotAllowed(request, env)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Server error'
       return new Response(JSON.stringify({ error: msg }), {

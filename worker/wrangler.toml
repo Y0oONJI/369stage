@@ -1,8 +1,9 @@
 # 1) wrangler d1 create 369stage-db  →  database_id 를 아래에 붙여넣기
-# 2) wrangler secret put API_SECRET
-# 3) 로컬: wrangler d1 migrations apply 369stage-db --local
+# 2) wrangler secret put ACCESS_CODE (또는 ACCESS_CODE_HASH)
+# 3) wrangler secret put SESSION_SIGNING_SECRET
+# 4) 로컬: wrangler d1 migrations apply 369stage-db --local
 #    원격: wrangler d1 migrations apply 369stage-db --remote
-# 4) wrangler deploy
+# 5) wrangler deploy
 
 name = "369stage-api"
 main = "src/index.ts"

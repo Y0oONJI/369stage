@@ -1,2 +1,3 @@
 # wrangler dev 시 복사해서 .dev.vars 로 사용 (git 무시됨)
-API_SECRET=로컬에서-쓸-긴-랜덤-문자열
+ACCESS_CODE=로컬에서-입력할-접근코드
+SESSION_SIGNING_SECRET=로컬에서-쓸-긴-랜덤-문자열
