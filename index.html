@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="ko">
   <head>
+    <script>
+      try {
+        var k = '369stage-theme'
+        var t = localStorage.getItem(k)
+        var dark =
+          t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {}
+    </script>
     <meta charset="UTF-8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
