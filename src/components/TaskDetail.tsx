@@ -357,42 +357,55 @@ const TaskDetailBody = memo(function TaskDetailBody({
 
           {checklistMode === 'structured' ? (
             <div className="flex flex-col gap-4">
-              {groupChecklistBySection(items).map(({ sectionTitle, items: groupItems }) => (
-                <div key={sectionTitle}>
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    {sectionTitle}
-                  </h3>
-                  <ul className="flex flex-col gap-1">
-                    {groupItems.map((item) => (
-                      <li
-                        key={item.id}
-                        className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800/80 dark:bg-zinc-900/40"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          disabled={!canEditChecklist}
-                          onChange={() =>
-                            updateChecklistItem(cur.id, item.id, {
-                              checked: !item.checked,
-                            })
-                          }
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 bg-white accent-indigo-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                            {item.displayCode != null ? `${item.displayCode} · ` : ''}
-                            {item.label ?? '항목'}
-                          </p>
-                          <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-200">
-                            {item.text}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              {groupChecklistBySection(items).map(({ sectionTitle, items: groupItems }) => {
+                const checkedCount = groupItems.filter((item) => item.checked).length
+                const totalCount = groupItems.length
+                return (
+                  <details
+                    key={sectionTitle}
+                    open={checkedCount < totalCount}
+                    className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800/80 dark:bg-zinc-900/40"
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-left marker:content-['']">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        {sectionTitle}
+                      </h3>
+                      <span className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {checkedCount}/{totalCount}
+                      </span>
+                    </summary>
+                    <ul className="flex flex-col gap-1 border-t border-zinc-200 px-2 py-2 dark:border-zinc-800/80">
+                      {groupItems.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800/80 dark:bg-zinc-900/40"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            disabled={!canEditChecklist}
+                            onChange={() =>
+                              updateChecklistItem(cur.id, item.id, {
+                                checked: !item.checked,
+                              })
+                            }
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 bg-white accent-indigo-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              {item.displayCode != null ? `${item.displayCode} · ` : ''}
+                              {item.label ?? '항목'}
+                            </p>
+                            <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-200">
+                              {item.text}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )
+              })}
             </div>
           ) : (
             <>
