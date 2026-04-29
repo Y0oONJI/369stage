@@ -37,15 +37,15 @@ export function StageStepper({
               className={[
                 'flex min-w-0 flex-1 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 isView
-                  ? 'border-zinc-500 bg-zinc-900/80'
-                  : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700',
+                  ? 'border-zinc-400 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-900/80'
+                  : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:border-zinc-700',
                 disabled && 'opacity-60',
               ].join(' ')}
             >
               <span
                 className={[
                   'text-xs font-medium tabular-nums',
-                  isPast || isCurrent ? 'text-zinc-200' : 'text-zinc-500',
+                  isPast || isCurrent ? 'text-zinc-800 dark:text-zinc-200' : 'text-zinc-500',
                 ].join(' ')}
               >
                 {stage}%
@@ -53,7 +53,7 @@ export function StageStepper({
               <span
                 className={[
                   'truncate text-[11px] leading-tight',
-                  isCurrent ? 'text-zinc-300' : 'text-zinc-500',
+                  isCurrent ? 'text-zinc-600 dark:text-zinc-300' : 'text-zinc-500',
                 ].join(' ')}
                 title={label}
               >
