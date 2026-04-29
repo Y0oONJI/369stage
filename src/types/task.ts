@@ -37,7 +37,6 @@ export type DirectionNotes = Record<Stage, DirectionNoteItem[]>
 export function emptyDirectionNotes(): DirectionNotes {
   return { 30: [], 60: [], 90: [] }
 }
-
 /** 90% → 완료(100%) 전환 시에만 쓰는 최종 체크리스트 */
 export interface Task {
   id: string

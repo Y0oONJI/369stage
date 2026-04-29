@@ -3,12 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+"scripts": {
+  "dev": "vite",
+  "build": "tsc -b && vite build",
+  "lint": "eslint .",
+  "preview": "npm run build && wrangler dev",
+  "deploy": "npm run build && wrangler deploy",
+  "worker:dev": "npm run dev --prefix worker",
+  "worker:deploy": "npm run deploy --prefix worker",
+  "worker:d1:local": "npm run d1:local --prefix worker",
+  "worker:d1:remote": "npm run d1:remote --prefix worker"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
