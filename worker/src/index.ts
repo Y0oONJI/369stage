@@ -15,6 +15,9 @@ type TaskRow = {
   status: 'active' | 'done'
   current_stage: 30 | 60 | 90
   checklist_json: string
+  due_date: string
+  category_id: string
+  direction_notes_json: string
 }
 
 type SessionPayload = {
@@ -182,6 +185,12 @@ function rowToTask(row: TaskRow) {
   } catch {
     checklist = []
   }
+  let directionNotes: unknown = {}
+  try {
+    directionNotes = JSON.parse(row.direction_notes_json || '{}')
+  } catch {
+    directionNotes = {}
+  }
   return {
     id: row.id,
     title: row.title,
@@ -189,6 +198,9 @@ function rowToTask(row: TaskRow) {
     status: row.status,
     currentStage: row.current_stage,
     checklist,
+    dueDate: row.due_date,
+    categoryId: row.category_id,
+    directionNotes,
   }
 }
 
@@ -251,7 +263,7 @@ export default {
     try {
       if (request.method === 'GET') {
         const { results } = await env.DB.prepare(
-          'SELECT id, title, description, status, current_stage, checklist_json FROM tasks ORDER BY updated_at DESC',
+          'SELECT id, title, description, status, current_stage, checklist_json, due_date, category_id, direction_notes_json FROM tasks ORDER BY updated_at DESC',
         ).all<TaskRow>()
 
         const tasks = (results ?? []).map(rowToTask)
@@ -291,14 +303,17 @@ export default {
           const cs = t.currentStage === 30 || t.currentStage === 60 || t.currentStage === 90 ? t.currentStage : null
           if (!id || !status || cs === null) continue
           const checklistJson = JSON.stringify(Array.isArray(t.checklist) ? t.checklist : [])
+          const dueDate = typeof t.dueDate === 'string' ? t.dueDate : ''
+          const categoryId = t.categoryId === 'common' || t.categoryId === 'ui' || t.categoryId === 'print' ? t.categoryId : 'common'
+          const directionNotesJson = JSON.stringify(t.directionNotes && typeof t.directionNotes === 'object' ? t.directionNotes : {})
 
           stmts.push(
             env.DB
               .prepare(
-                `INSERT INTO tasks (id, title, description, status, current_stage, checklist_json, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO tasks (id, title, description, status, current_stage, checklist_json, due_date, category_id, direction_notes_json, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               )
-              .bind(id, title, description, status, cs, checklistJson, now),
+              .bind(id, title, description, status, cs, checklistJson, dueDate, categoryId, directionNotesJson, now),
           )
         }
 
