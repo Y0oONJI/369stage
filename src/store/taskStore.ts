@@ -231,7 +231,7 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
   },
 
   saveDirectionNoteItem: (taskId, stage, itemId, text) => {
-    const trimmed = text
+    const trimmed = text.trim()
     const now = new Date().toISOString()
     set((s) => ({
       tasks: s.tasks.map((t) => {
