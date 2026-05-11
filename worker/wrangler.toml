@@ -1,0 +1,19 @@
+# 1) wrangler d1 create 369stage-db  →  database_id 를 아래에 붙여넣기
+# 2) wrangler secret put ACCESS_CODE (또는 ACCESS_CODE_HASH)
+# 3) wrangler secret put SESSION_SIGNING_SECRET
+# 4) 로컬: wrangler d1 migrations apply 369stage-db --local
+#    원격: wrangler d1 migrations apply 369stage-db --remote
+# 5) wrangler deploy
+
+name = "369stage-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "369stage-db"
+database_id = "953704a2-673f-41df-a26a-b674c2736236"
+
+# 선택: "https://xxx.vercel.app,http://localhost:5173" — 비우면 Access-Control-Allow-Origin: *
+# [vars]
+# CORS_ORIGINS = ""
