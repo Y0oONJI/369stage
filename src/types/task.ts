@@ -1,5 +1,5 @@
 /** qa_practical.md 카테고리 id와 동일 */
-export type QaCategoryId = 'common' | 'ui' | 'print'
+export type QaCategoryId = 'common' | 'ui' | 'print' | 'video' | 'photo' | 'mockup' | 'ppt' | 'web' | 'sns' | 'dpp'
 
 export type Stage = 30 | 60 | 90
 

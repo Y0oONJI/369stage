@@ -38,7 +38,11 @@ function parseDirectionNotes(raw: unknown): DirectionNotes {
 }
 
 function parseCategoryId(raw: unknown): QaCategoryId {
-  if (raw === 'common' || raw === 'ui' || raw === 'print') return raw
+  if (
+    raw === 'common' || raw === 'ui' || raw === 'print' ||
+    raw === 'video' || raw === 'photo' || raw === 'mockup' ||
+    raw === 'ppt' || raw === 'web' || raw === 'sns' || raw === 'dpp'
+  ) return raw
   return 'common'
 }
 
