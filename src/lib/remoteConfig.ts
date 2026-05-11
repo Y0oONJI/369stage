@@ -3,7 +3,6 @@ export function hasRemote(): boolean {
   const url = import.meta.env.VITE_API_URL?.trim()
   return Boolean(url)
 }
-
 export function apiBaseUrl(): string {
   return (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '')
 }
