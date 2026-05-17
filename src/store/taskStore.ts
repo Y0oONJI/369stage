@@ -26,6 +26,7 @@ export interface TaskStore {
   addTask: (
     title: string,
     description: string,
+    startDate: string,
     dueDate: string,
     categoryId: QaCategoryId,
   ) => string
@@ -33,7 +34,7 @@ export interface TaskStore {
   ensureCategoryChecklistAt90: (taskId: string) => void
   updateTask: (
     id: string,
-    patch: Partial<Pick<Task, 'title' | 'description' | 'dueDate'>>,
+    patch: Partial<Pick<Task, 'title' | 'description' | 'startDate' | 'dueDate'>>,
   ) => void
   deleteTask: (id: string) => void
   advanceStage: (id: string) => void
@@ -58,12 +59,13 @@ export interface TaskStore {
 const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
   tasks: [],
 
-  addTask: (title, description, dueDate, categoryId) => {
+  addTask: (title, description, startDate, dueDate, categoryId) => {
     const id = newId()
     const task: Task = {
       id,
       title: title.trim() || '제목 없음',
       description: description.trim(),
+      startDate: startDate.trim(),
       dueDate: dueDate.trim(),
       categoryId,
       directionNotes: emptyDirectionNotes(),
@@ -103,6 +105,10 @@ const createTaskSlice: StateCreator<TaskStore> = (set, get) => ({
                 patch.description !== undefined
                   ? patch.description.trim()
                   : t.description,
+              startDate:
+                patch.startDate !== undefined
+                  ? patch.startDate.trim()
+                  : t.startDate,
               dueDate:
                 patch.dueDate !== undefined
                   ? patch.dueDate.trim()

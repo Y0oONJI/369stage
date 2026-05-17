@@ -5,9 +5,11 @@ import type { QaCategoryId } from '../types/task'
 type Props = {
   open: boolean
   onClose: () => void
+  defaultStartDate?: string
   onCreate: (
     title: string,
     description: string,
+    startDate: string,
     dueDate: string,
     categoryId: QaCategoryId,
   ) => void
@@ -15,9 +17,10 @@ type Props = {
 
 const categoryOptions = getCategorySelectOptions()
 
-export function NewTaskModal({ open, onClose, onCreate }: Props) {
+export function NewTaskModal({ open, onClose, defaultStartDate, onCreate }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [startDate, setStartDate] = useState(defaultStartDate ?? '')
   const [dueDate, setDueDate] = useState('')
   const [categoryId, setCategoryId] = useState<QaCategoryId>('common')
 
@@ -25,9 +28,10 @@ export function NewTaskModal({ open, onClose, onCreate }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onCreate(title, description, dueDate, categoryId)
+    onCreate(title, description, startDate, dueDate, categoryId)
     setTitle('')
     setDescription('')
+    setStartDate('')
     setDueDate('')
     setCategoryId('common')
     onClose()
@@ -68,14 +72,25 @@ export function NewTaskModal({ open, onClose, onCreate }: Props) {
               placeholder="목표, 제약, 참고 링크 등"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-500">목표일</label>
-            <input
-              type="date"
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:border-zinc-600"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-zinc-500">시작일</label>
+              <input
+                type="date"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:border-zinc-600"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-zinc-500">목표일</label>
+              <input
+                type="date"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:border-zinc-600"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-500">QA 카테고리</label>

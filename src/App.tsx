@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { CalendarView } from './components/CalendarView'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskSidebar } from './components/TaskSidebar'
@@ -24,6 +25,8 @@ export default function App() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
+  const [newDefaultStartDate, setNewDefaultStartDate] = useState<string | undefined>()
+  const [view, setView] = useState<'list' | 'calendar'>('list')
 
   /** localStorage(persist) 복원 후에만 서버와 맞춤 — 빈 초기 상태로 서버를 덮어쓰는 레이스 완화 */
   useEffect(() => {
@@ -98,7 +101,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       {remoteError && (
         <div className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 dark:border-amber-900/80 dark:bg-amber-950/90 dark:text-amber-200">
           원격 불러오기 실패: {remoteError} (로컬 편집은 계속됩니다)
@@ -110,31 +113,45 @@ export default function App() {
         </div>
       )}
 
-      <TaskSidebar
-        selectedId={resolvedId}
-        onSelect={setSelectedId}
-        onNewTask={() => setNewOpen(true)}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {resolvedId != null ? (
-          <TaskDetail
-            key={`${resolvedId}-${selectedStage ?? 30}`}
-            taskId={resolvedId}
+      {view === 'calendar' ? (
+        <CalendarView
+          onNewTask={(defaultStartDate) => {
+            setNewDefaultStartDate(defaultStartDate)
+            setNewOpen(true)
+          }}
+          onToggleView={() => setView('list')}
+        />
+      ) : (
+        <>
+          <TaskSidebar
+            selectedId={resolvedId}
+            onSelect={setSelectedId}
+            onNewTask={() => setNewOpen(true)}
+            onToggleView={() => setView('calendar')}
           />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">작업을 선택하거나 새 작업을 만드세요.</p>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+            {resolvedId != null ? (
+              <TaskDetail
+                key={`${resolvedId}-${selectedStage ?? 30}`}
+                taskId={resolvedId}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">작업을 선택하거나 새 작업을 만드세요.</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <NewTaskModal
         open={newOpen}
-        onClose={() => setNewOpen(false)}
-        onCreate={(title, description, dueDate, categoryId) => {
-          const id = addTask(title, description, dueDate, categoryId)
+        onClose={() => { setNewOpen(false); setNewDefaultStartDate(undefined) }}
+        defaultStartDate={newDefaultStartDate}
+        onCreate={(title, description, startDate, dueDate, categoryId) => {
+          const id = addTask(title, description, startDate, dueDate, categoryId)
           setSelectedId(id)
+          setView('list')
         }}
       />
     </div>
