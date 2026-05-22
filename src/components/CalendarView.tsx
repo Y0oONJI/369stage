@@ -50,35 +50,37 @@ export function CalendarView({ onNewTask, onToggleView }: Props) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
-      <CalendarHeader
-        year={year}
-        month={month}
-        onPrev={goPrev}
-        onNext={goNext}
-        onToday={goToday}
-        onNewTask={() => onNewTask()}
-        onToggleView={onToggleView}
-      />
-      <div className="flex flex-1 overflow-hidden">
-        <CalendarGrid
+    <CalendarErrorBoundary>
+      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
+        <CalendarHeader
           year={year}
           month={month}
-          tasks={activeTasks}
-          onSelectTask={setSelectedTaskId}
+          onPrev={goPrev}
+          onNext={goNext}
+          onToday={goToday}
+          onNewTask={() => onNewTask()}
+          onToggleView={onToggleView}
         />
-        <UnscheduledPanel
-          tasks={activeTasks.filter((t) => !t.startDate && !t.dueDate)}
-          onSelectTask={setSelectedTaskId}
-        />
-      </div>
+        <div className="flex flex-1 overflow-hidden">
+          <CalendarGrid
+            year={year}
+            month={month}
+            tasks={activeTasks}
+            onSelectTask={setSelectedTaskId}
+          />
+          <UnscheduledPanel
+            tasks={activeTasks.filter((t) => !t.startDate && !t.dueDate)}
+            onSelectTask={setSelectedTaskId}
+          />
+        </div>
 
-      {selectedTaskId && (
-        <TaskDetailModal
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-        />
-      )}
-    </div>
+        {selectedTaskId && (
+          <TaskDetailModal
+            taskId={selectedTaskId}
+            onClose={() => setSelectedTaskId(null)}
+          />
+        )}
+      </div>
+    </CalendarErrorBoundary>
   )
 }
