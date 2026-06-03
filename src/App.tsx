@@ -4,6 +4,7 @@ import { CalendarView } from './components/CalendarView'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskSidebar } from './components/TaskSidebar'
+import { AuthError, createSession, hasSessionToken } from './lib/api'
 import {
   hydrateRemoteTasks,
   isRemoteConfigured,
@@ -18,8 +19,13 @@ export default function App() {
   const addTask = useTaskStore((s) => s.addTask)
 
   const useRemote = isRemoteConfigured()
-  const [remoteReady, setRemoteReady] = useState(!useRemote)
-  const [remoteCanSave, setRemoteCanSave] = useState(!useRemote)
+  const [isAuthorized, setIsAuthorized] = useState(!useRemote || hasSessionToken())
+  const [accessCode, setAccessCode] = useState('')
+  const [authPending, setAuthPending] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  const [remoteReady, setRemoteReady] = useState(!useRemote || !isAuthorized)
+  const [remoteCanSave, setRemoteCanSave] = useState(!useRemote || !isAuthorized)
   const [remoteError, setRemoteError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -28,23 +34,41 @@ export default function App() {
   const [newDefaultStartDate, setNewDefaultStartDate] = useState<string | undefined>()
   const [view, setView] = useState<'list' | 'calendar'>('list')
 
-  /** localStorage(persist) 복원 후에만 서버와 맞춤 — 빈 초기 상태로 서버를 덮어쓰는 레이스 완화 */
   useEffect(() => {
     if (!useRemote) {
-      setRemoteReady(true)
+      setIsAuthorized(true)
       return
     }
+    setIsAuthorized(hasSessionToken())
+  }, [useRemote])
+
+  /** localStorage(persist) 복원 후에만 서버와 맞춤 — 빈 초기 상태로 서버를 덮어쓰는 레이스 완화 */
+  useEffect(() => {
+    if (!useRemote) return
+    if (!isAuthorized) {
+      setRemoteReady(true)
+      setRemoteCanSave(false)
+      return
+    }
+
     let cancelled = false
+    setRemoteReady(false)
     const runHydrate = async () => {
       try {
         await hydrateRemoteTasks()
         if (!cancelled) {
+          setAuthError(null)
           setRemoteError(null)
           setRemoteCanSave(true)
         }
       } catch (e) {
         if (!cancelled) {
-          setRemoteError(e instanceof Error ? e.message : String(e))
+          if (e instanceof AuthError) {
+            setIsAuthorized(false)
+            setAuthError(e.message)
+          } else {
+            setRemoteError(e instanceof Error ? e.message : String(e))
+          }
           setRemoteCanSave(false)
         }
       } finally {
@@ -67,12 +91,12 @@ export default function App() {
       cancelled = true
       unsub()
     }
-  }, [useRemote])
+  }, [useRemote, isAuthorized])
 
   useEffect(() => {
-    if (!useRemote || !remoteReady || !remoteCanSave) return
+    if (!useRemote || !isAuthorized || !remoteReady || !remoteCanSave) return
     return subscribeRemoteSave((msg) => setSaveError(msg))
-  }, [useRemote, remoteReady, remoteCanSave])
+  }, [useRemote, isAuthorized, remoteReady, remoteCanSave])
 
   /** 다른 PC에서 PUT 된 내용을 주기·탭 복귀 시 서버에서 다시 받아옴 */
   useEffect(() => {
@@ -91,6 +115,55 @@ export default function App() {
   const selectedStage = useTaskStore((s) =>
     resolvedId ? s.tasks.find((t) => t.id === resolvedId)?.currentStage : undefined,
   )
+
+  if (useRemote && !isAuthorized) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-6">
+        <form
+          className="w-full max-w-sm space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const code = accessCode.trim()
+            if (!code || authPending) return
+            setAuthPending(true)
+            setAuthError(null)
+            createSession(code)
+              .then(() => {
+                setAccessCode('')
+                setIsAuthorized(true)
+              })
+              .catch((err: unknown) => {
+                setAuthError(err instanceof Error ? err.message : String(err))
+              })
+              .finally(() => {
+                setAuthPending(false)
+              })
+          }}
+        >
+          <h1 className="text-base font-semibold text-zinc-100">접근 코드 입력</h1>
+          <p className="text-xs text-zinc-400">
+            여러 기기에서 동일한 데이터를 보려면 접근 코드를 입력해주세요.
+          </p>
+          <input
+            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+            type="password"
+            value={accessCode}
+            onChange={(e) => setAccessCode(e.target.value)}
+            placeholder="Access code"
+            autoComplete="off"
+          />
+          {authError && <p className="text-xs text-amber-300">{authError}</p>}
+          <button
+            className="w-full rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            type="submit"
+            disabled={authPending || !accessCode.trim()}
+          >
+            {authPending ? '확인 중…' : '접속'}
+          </button>
+        </form>
+      </div>
+    )
+  }
 
   if (useRemote && !remoteReady) {
     return (
