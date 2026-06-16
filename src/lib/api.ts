@@ -39,14 +39,14 @@ async function parseJsonOrNull(res: Response): Promise<unknown> {
   }
 }
 
-export async function createSession(accessCode: string): Promise<void> {
-  const res = await fetch(`${apiBaseUrl()}/auth/session`, {
+export async function createGoogleSession(idToken: string): Promise<void> {
+  const res = await fetch(`${apiBaseUrl()}/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode }),
+    body: JSON.stringify({ idToken }),
   })
   if (res.status === 401) {
-    throw new AuthError('접근 코드가 올바르지 않습니다.')
+    throw new AuthError('구글 로그인에 실패했습니다.')
   }
   if (!res.ok) {
     throw new Error(`인증에 실패했습니다 (${res.status})`)
@@ -65,7 +65,7 @@ export async function fetchTasks(): Promise<unknown> {
   })
   if (res.status === 401) {
     clearSessionToken()
-    throw new AuthError('인증이 만료되었습니다. 접근 코드를 다시 입력해주세요.')
+    throw new AuthError('인증이 만료되었습니다. 다시 로그인해주세요.')
   }
   if (!res.ok) {
     throw new Error(`작업 목록을 불러오지 못했습니다 (${res.status})`)
@@ -84,7 +84,7 @@ export async function saveTasks(tasks: Task[]): Promise<void> {
   })
   if (res.status === 401) {
     clearSessionToken()
-    throw new AuthError('인증이 만료되었습니다. 접근 코드를 다시 입력해주세요.')
+    throw new AuthError('인증이 만료되었습니다. 다시 로그인해주세요.')
   }
   if (!res.ok) {
     throw new Error(`저장에 실패했습니다 (${res.status})`)

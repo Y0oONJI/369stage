@@ -1,9 +1,13 @@
+import { createRemoteJWKSet, jwtVerify } from 'jose'
+
 export interface Env {
   DB: D1Database
   SESSION_SIGNING_SECRET: string
   ACCESS_CODE?: string
   /** Optional sha256 hex of access code */
   ACCESS_CODE_HASH?: string
+  /** Firebase 프로젝트 ID — Google 로그인 토큰 검증에 사용 */
+  FIREBASE_PROJECT_ID?: string
   /** Comma-separated origins; if empty, allow any origin for preflight */
   CORS_ORIGINS?: string
 }
@@ -19,6 +23,24 @@ type TaskRow = {
 
 type SessionPayload = {
   exp: number
+  /** Firebase uid. null = 구버전 접근 코드 세션 (소유자 없는 작업만 접근) */
+  uid: string | null
+}
+
+const FIREBASE_JWKS = createRemoteJWKSet(
+  new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
+)
+
+async function verifyFirebaseIdToken(idToken: string, projectId: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(idToken, FIREBASE_JWKS, {
+      issuer: `https://securetoken.google.com/${projectId}`,
+      audience: projectId,
+    })
+    return typeof payload.sub === 'string' ? payload.sub : null
+  } catch {
+    return null
+  }
 }
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
@@ -145,10 +167,13 @@ async function signHmacSha256(input: string, secret: string): Promise<string> {
   return toBase64Url(new Uint8Array(sig))
 }
 
-async function createSessionToken(secret: string): Promise<{ token: string; exp: number }> {
+async function createSessionToken(
+  secret: string,
+  uid: string | null,
+): Promise<{ token: string; exp: number }> {
   const header = toBase64Url(new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })))
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS
-  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify({ exp } satisfies SessionPayload)))
+  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify({ exp, uid } satisfies SessionPayload)))
   const signingInput = `${header}.${payload}`
   const signature = await signHmacSha256(signingInput, secret)
   return { token: `${signingInput}.${signature}`, exp }
@@ -169,7 +194,8 @@ async function verifySessionToken(token: string, secret: string): Promise<Sessio
     const parsed = JSON.parse(new TextDecoder().decode(payloadBytes)) as Partial<SessionPayload>
     if (typeof parsed.exp !== 'number') return null
     if (parsed.exp <= Math.floor(Date.now() / 1000)) return null
-    return { exp: parsed.exp }
+    const uid = typeof parsed.uid === 'string' ? parsed.uid : null
+    return { exp: parsed.exp, uid }
   } catch {
     return null
   }
@@ -228,7 +254,40 @@ export default {
         return unauthorized(request, env)
       }
 
-      const { token, exp } = await createSessionToken(env.SESSION_SIGNING_SECRET)
+      const { token, exp } = await createSessionToken(env.SESSION_SIGNING_SECRET, null)
+      return jsonResponse({ token, expiresAt: exp }, request, env)
+    }
+
+    if (url.pathname === '/auth/google') {
+      if (request.method !== 'POST') return methodNotAllowed(request, env)
+      if (!env.SESSION_SIGNING_SECRET?.trim()) {
+        return serverError('Server misconfigured: missing SESSION_SIGNING_SECRET', request, env)
+      }
+      if (!env.FIREBASE_PROJECT_ID?.trim()) {
+        return serverError('Server misconfigured: missing FIREBASE_PROJECT_ID', request, env)
+      }
+
+      let body: unknown
+      try {
+        body = await request.json()
+      } catch {
+        return badRequest('Invalid JSON', request, env)
+      }
+      const idToken =
+        body && typeof body === 'object' && 'idToken' in body
+          ? (body as { idToken?: unknown }).idToken
+          : null
+      if (typeof idToken !== 'string' || !idToken.trim()) {
+        return badRequest('Expected { idToken: string }', request, env)
+      }
+
+      const uid = await verifyFirebaseIdToken(idToken.trim(), env.FIREBASE_PROJECT_ID.trim())
+      if (!uid) return unauthorized(request, env)
+
+      // 첫 구글 로그인 시점에 소유자 없는(접근 코드 시절) 작업들을 이 계정으로 1회 이전
+      await env.DB.prepare('UPDATE tasks SET user_id = ? WHERE user_id IS NULL').bind(uid).run()
+
+      const { token, exp } = await createSessionToken(env.SESSION_SIGNING_SECRET, uid)
       return jsonResponse({ token, expiresAt: exp }, request, env)
     }
 
@@ -248,11 +307,20 @@ export default {
     const session = await verifySessionToken(token, env.SESSION_SIGNING_SECRET)
     if (!session) return unauthorized(request, env)
 
+    const uid = session.uid
+
     try {
       if (request.method === 'GET') {
-        const { results } = await env.DB.prepare(
-          'SELECT id, title, description, status, current_stage, checklist_json FROM tasks ORDER BY updated_at DESC',
-        ).all<TaskRow>()
+        const { results } =
+          uid === null
+            ? await env.DB.prepare(
+                'SELECT id, title, description, status, current_stage, checklist_json FROM tasks WHERE user_id IS NULL ORDER BY updated_at DESC',
+              ).all<TaskRow>()
+            : await env.DB.prepare(
+                'SELECT id, title, description, status, current_stage, checklist_json FROM tasks WHERE user_id = ? ORDER BY updated_at DESC',
+              )
+                .bind(uid)
+                .all<TaskRow>()
 
         const tasks = (results ?? []).map(rowToTask)
         return new Response(JSON.stringify({ tasks }), {
@@ -279,7 +347,11 @@ export default {
         const now = new Date().toISOString()
         const stmts: D1PreparedStatement[] = []
 
-        stmts.push(env.DB.prepare('DELETE FROM tasks'))
+        stmts.push(
+          uid === null
+            ? env.DB.prepare('DELETE FROM tasks WHERE user_id IS NULL')
+            : env.DB.prepare('DELETE FROM tasks WHERE user_id = ?').bind(uid),
+        )
 
         for (const raw of tasks) {
           if (!raw || typeof raw !== 'object') continue
@@ -295,10 +367,10 @@ export default {
           stmts.push(
             env.DB
               .prepare(
-                `INSERT INTO tasks (id, title, description, status, current_stage, checklist_json, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO tasks (id, title, description, status, current_stage, checklist_json, updated_at, user_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
               )
-              .bind(id, title, description, status, cs, checklistJson, now),
+              .bind(id, title, description, status, cs, checklistJson, now, uid),
           )
         }
 

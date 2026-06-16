@@ -14,6 +14,9 @@ binding = "DB"
 database_name = "369stage-db"
 database_id = "953704a2-673f-41df-a26a-b674c2736236"
 
+[vars]
+# Firebase 콘솔 > 프로젝트 설정 > 일반 > 프로젝트 ID
+FIREBASE_PROJECT_ID = "stage-1a251"
+
 # 선택: "https://xxx.vercel.app,http://localhost:5173" — 비우면 Access-Control-Allow-Origin: *
-# [vars]
 # CORS_ORIGINS = ""
