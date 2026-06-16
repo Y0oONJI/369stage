@@ -44,6 +44,8 @@ export interface Task {
   title: string
   /** 본문 (여러 줄) */
   description: string
+  /** 시작일, `YYYY-MM-DD`. 없으면 빈 문자열 */
+  startDate: string
   /** 목표일 등, `YYYY-MM-DD`. 없으면 빈 문자열 */
   dueDate: string
   /** QA 체크리스트 카테고리 — 생성 시 선택, 이후 변경 없음 */
