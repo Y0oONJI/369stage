@@ -9,9 +9,10 @@ type Props = {
   selectedId: string | null
   onSelect: (id: string) => void
   onNewTask: () => void
+  onToggleView: () => void
 }
 
-export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
+export function TaskSidebar({ selectedId, onSelect, onNewTask, onToggleView }: Props) {
   /** 제목 등 내용이 바뀌어도 id·status만 같으면 사이드바 전체 리렌더 생략 */
   const activeIds = useTaskStore(
     useShallow((s) => s.tasks.filter((t) => t.status === 'active').map((t) => t.id)),
@@ -27,6 +28,13 @@ export function TaskSidebar({ selectedId, onSelect, onNewTask }: Props) {
         <h1 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">369stage</h1>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={onToggleView}
+            className="rounded-md px-2.5 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            캘린더 뷰
+          </button>
           <button
             type="button"
             onClick={onNewTask}

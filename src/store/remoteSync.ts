@@ -4,6 +4,7 @@ import { migrateTasks } from './migrateTask'
 import { useTaskStore } from './taskStore'
 
 const DEBOUNCE_MS = 650
+
 /** 다른 PC에서 저장한 내용을 열린 탭에서도 보이게 하기 위한 서버 재조회 간격 */
 const DEFAULT_POLL_INTERVAL_MS = 30_000
 

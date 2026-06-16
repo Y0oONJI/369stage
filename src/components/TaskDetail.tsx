@@ -96,6 +96,7 @@ function TaskMetaPanel({
   function cancelMetaEdit() {
     setEditingMeta(false)
   }
+
   function handleDelete() {
     if (!confirm('이 작업을 삭제할까요?')) return
     deleteTask(task.id)

@@ -14,6 +14,7 @@ function migrateStageDirectionList(v: unknown): DirectionNoteItem[] {
     return [{ id: crypto.randomUUID(), text: v.trim(), createdAt: now, updatedAt: now }]
   }
   if (!Array.isArray(v)) return []
+  
   const out: DirectionNoteItem[] = []
   for (const item of v) {
     if (!item || typeof item !== 'object') continue
@@ -53,24 +54,31 @@ export function migrateTask(raw: unknown): Task {
   }
   const t = raw as Record<string, unknown>
   const checklist = t.checklist
-  const dueDate = typeof t.dueDate === 'string' ? t.dueDate : ''
+
+  const startDate =
+    typeof t.startDate === 'string' ? t.startDate : ''
+  const dueDate =
+    typeof t.dueDate === 'string' ? t.dueDate : ''
+
   const categoryId = parseCategoryId(t.categoryId)
   const directionNotes = parseDirectionNotes(t.directionNotes)
 
   if (Array.isArray(checklist)) {
-    return { ...(raw as Task), dueDate, directionNotes, categoryId }
+    return { ...(raw as Task), startDate, dueDate, directionNotes, categoryId }
   }
   if (checklist && typeof checklist === 'object' && '90' in checklist) {
     const items = (checklist as Record<string, ChecklistItem[]>)[90]
     return {
       ...(raw as Task),
       checklist: Array.isArray(items) ? items : [],
+      startDate,
       dueDate,
       directionNotes,
       categoryId,
     }
   }
-  return { ...(raw as Task), checklist: [], dueDate, directionNotes, categoryId }
+
+  return { ...(raw as Task), checklist: [], startDate, dueDate, directionNotes, categoryId }
 }
 
 export function migrateTasks(tasks: unknown): Task[] {

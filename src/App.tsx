@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { CalendarView } from './components/CalendarView'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskSidebar } from './components/TaskSidebar'
-import { AuthError, createSession, hasSessionToken } from './lib/api'
+import { AuthError, createGoogleSession, hasSessionToken } from './lib/api'
+import { signInWithGoogle } from './lib/firebase'
 import {
   hydrateRemoteTasks,
   isRemoteConfigured,
@@ -18,7 +20,6 @@ export default function App() {
 
   const useRemote = isRemoteConfigured()
   const [isAuthorized, setIsAuthorized] = useState(!useRemote || hasSessionToken())
-  const [accessCode, setAccessCode] = useState('')
   const [authPending, setAuthPending] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
 
@@ -30,8 +31,9 @@ export default function App() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
+  const [newDefaultStartDate, setNewDefaultStartDate] = useState<string | undefined>()
+  const [view, setView] = useState<'list' | 'calendar'>('list')
 
-  /** localStorage(persist) 복원 후에만 서버와 맞춤 */
   useEffect(() => {
     if (!useRemote) {
       setIsAuthorized(true)
@@ -40,6 +42,7 @@ export default function App() {
     setIsAuthorized(hasSessionToken())
   }, [useRemote])
 
+  /** localStorage(persist) 복원 후에만 서버와 맞춤 — 빈 초기 상태로 서버를 덮어쓰는 레이스 완화 */
   useEffect(() => {
     if (!useRemote) return
     if (!isAuthorized) {
@@ -111,48 +114,35 @@ export default function App() {
   if (useRemote && !isAuthorized) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-6">
-        <form
-          className="w-full max-w-sm space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const code = accessCode.trim()
-            if (!code || authPending) return
-            setAuthPending(true)
-            setAuthError(null)
-            createSession(code)
-              .then(() => {
-                setAccessCode('')
-                setIsAuthorized(true)
-              })
-              .catch((err: unknown) => {
-                setAuthError(err instanceof Error ? err.message : String(err))
-              })
-              .finally(() => {
-                setAuthPending(false)
-              })
-          }}
-        >
-          <h1 className="text-base font-semibold text-zinc-100">접근 코드 입력</h1>
+        <div className="w-full max-w-sm space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+          <h1 className="text-base font-semibold text-zinc-100">로그인</h1>
           <p className="text-xs text-zinc-400">
-            여러 기기에서 동일한 데이터를 보려면 접근 코드를 입력해주세요.
+            구글 계정으로 로그인하면 어떤 기기에서든 같은 데이터를 볼 수 있어요.
           </p>
-          <input
-            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-            type="password"
-            value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
-            placeholder="Access code"
-            autoComplete="off"
-          />
           {authError && <p className="text-xs text-amber-300">{authError}</p>}
           <button
-            className="w-full rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
-            type="submit"
-            disabled={authPending || !accessCode.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            disabled={authPending}
+            onClick={() => {
+              setAuthPending(true)
+              setAuthError(null)
+              signInWithGoogle()
+                .then((idToken) => createGoogleSession(idToken))
+                .then(() => {
+                  setIsAuthorized(true)
+                })
+                .catch((err: unknown) => {
+                  setAuthError(err instanceof Error ? err.message : String(err))
+                })
+                .finally(() => {
+                  setAuthPending(false)
+                })
+            }}
           >
-            {authPending ? '확인 중…' : '접속'}
+            {authPending ? '로그인 중…' : 'Google로 로그인'}
           </button>
-        </form>
+        </div>
       </div>
     )
   }
@@ -166,7 +156,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       {remoteError && (
         <div className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 dark:border-amber-900/80 dark:bg-amber-950/90 dark:text-amber-200">
           원격 불러오기 실패: {remoteError} (로컬 편집은 계속됩니다)
@@ -178,31 +168,45 @@ export default function App() {
         </div>
       )}
 
-      <TaskSidebar
-        selectedId={resolvedId}
-        onSelect={setSelectedId}
-        onNewTask={() => setNewOpen(true)}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-        {resolvedId != null ? (
-          <TaskDetail
-            key={`${resolvedId}-${selectedStage ?? 30}`}
-            taskId={resolvedId}
+      {view === 'calendar' ? (
+        <CalendarView
+          onNewTask={(defaultStartDate) => {
+            setNewDefaultStartDate(defaultStartDate)
+            setNewOpen(true)
+          }}
+          onToggleView={() => setView('list')}
+        />
+      ) : (
+        <>
+          <TaskSidebar
+            selectedId={resolvedId}
+            onSelect={setSelectedId}
+            onNewTask={() => setNewOpen(true)}
+            onToggleView={() => setView('calendar')}
           />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">작업을 선택하거나 새 작업을 만드세요.</p>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+            {resolvedId != null ? (
+              <TaskDetail
+                key={`${resolvedId}-${selectedStage ?? 30}`}
+                taskId={resolvedId}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">작업을 선택하거나 새 작업을 만드세요.</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <NewTaskModal
         open={newOpen}
-        onClose={() => setNewOpen(false)}
-        onCreate={(title, description, dueDate, categoryId) => {
-          const id = addTask(title, description, dueDate, categoryId)
+        onClose={() => { setNewOpen(false); setNewDefaultStartDate(undefined) }}
+        defaultStartDate={newDefaultStartDate}
+        onCreate={(title, description, startDate, dueDate, categoryId) => {
+          const id = addTask(title, description, startDate, dueDate, categoryId)
           setSelectedId(id)
+          setView('list')
         }}
       />
     </div>
