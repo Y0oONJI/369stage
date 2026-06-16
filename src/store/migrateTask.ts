@@ -1,4 +1,3 @@
-
 import {
   emptyDirectionNotes,
   type ChecklistItem,
@@ -12,14 +11,7 @@ function migrateStageDirectionList(v: unknown): DirectionNoteItem[] {
   if (typeof v === 'string') {
     if (!v.trim()) return []
     const now = new Date().toISOString()
-    return [
-      {
-        id: crypto.randomUUID(),
-        text: v.trim(),
-        createdAt: now,
-        updatedAt: now,
-      },
-    ]
+    return [{ id: crypto.randomUUID(), text: v.trim(), createdAt: now, updatedAt: now }]
   }
   if (!Array.isArray(v)) return []
   
@@ -29,10 +21,8 @@ function migrateStageDirectionList(v: unknown): DirectionNoteItem[] {
     const i = item as Record<string, unknown>
     const id = typeof i.id === 'string' ? i.id : crypto.randomUUID()
     const text = typeof i.text === 'string' ? i.text : ''
-    const createdAt =
-      typeof i.createdAt === 'string' ? i.createdAt : new Date().toISOString()
-    const updatedAt =
-      typeof i.updatedAt === 'string' ? i.updatedAt : createdAt
+    const createdAt = typeof i.createdAt === 'string' ? i.createdAt : new Date().toISOString()
+    const updatedAt = typeof i.updatedAt === 'string' ? i.updatedAt : createdAt
     out.push({ id, text, createdAt, updatedAt })
   }
   return out
@@ -71,13 +61,11 @@ export function migrateTask(raw: unknown): Task {
     typeof t.dueDate === 'string' ? t.dueDate : ''
 
   const categoryId = parseCategoryId(t.categoryId)
-
   const directionNotes = parseDirectionNotes(t.directionNotes)
 
   if (Array.isArray(checklist)) {
     return { ...(raw as Task), startDate, dueDate, directionNotes, categoryId }
   }
-
   if (checklist && typeof checklist === 'object' && '90' in checklist) {
     const items = (checklist as Record<string, ChecklistItem[]>)[90]
     return {

@@ -15,7 +15,6 @@ import {
 import { useTaskStore } from './store/taskStore'
 
 export default function App() {
-  /** 작업 id 목록만 구독 — 다른 작업 내용이 바뀌어도 목록 길이·순서가 같으면 App 리렌더 생략 */
   const taskIds = useTaskStore(useShallow((s) => s.tasks.map((t) => t.id)))
   const addTask = useTaskStore((s) => s.addTask)
 
@@ -80,9 +79,7 @@ export default function App() {
     const { persist } = useTaskStore
     if (persist.hasHydrated()) {
       void runHydrate()
-      return () => {
-        cancelled = true
-      }
+      return () => { cancelled = true }
     }
 
     const unsub = persist.onFinishHydration(() => {
@@ -106,13 +103,10 @@ export default function App() {
   }, [useRemote, remoteReady])
 
   const resolvedId = useMemo(() => {
-    if (selectedId != null && taskIds.includes(selectedId)) {
-      return selectedId
-    }
+    if (selectedId != null && taskIds.includes(selectedId)) return selectedId
     return taskIds[0] ?? null
   }, [taskIds, selectedId])
 
-  /** 선택 작업의 단계가 바뀔 때만 키 갱신(상세 리마운트) */
   const selectedStage = useTaskStore((s) =>
     resolvedId ? s.tasks.find((t) => t.id === resolvedId)?.currentStage : undefined,
   )
@@ -170,7 +164,7 @@ export default function App() {
       )}
       {saveError && (
         <div className="fixed bottom-16 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-center text-xs text-red-900 dark:border-red-900/80 dark:bg-red-950/90 dark:text-red-200">
-          서버 저장 실패: {saveError}. 새로고침 전에 네트워크를 확인하세요. 데이터는 이 브라우저 localStorage에도 남습니다.
+          서버 저장 실패: {saveError}. 새로고침 전에 네트워크를 확인하세요.
         </div>
       )}
 

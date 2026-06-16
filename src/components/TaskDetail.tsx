@@ -84,7 +84,6 @@ function TaskMetaPanel({
     setDraftDueDate(task.dueDate)
     setEditingMeta(true)
   }
-
   function saveMeta() {
     updateTask(task.id, {
       title: draftTitle,
@@ -273,7 +272,6 @@ const TaskDetailBody = memo(function TaskDetailBody({
     if (cur.currentStage !== 90 || cur.checklist.length > 0) return
     useTaskStore.getState().ensureCategoryChecklistAt90(cur.id)
   }, [cur.currentStage, cur.id, cur.checklist.length])
-
   const canAdvance =
     editable && viewStage === cur.currentStage && cur.currentStage !== 90
 
