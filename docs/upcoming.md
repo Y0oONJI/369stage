@@ -76,4 +76,4 @@
 
 | 날짜 | 한 일 / 메모 |
 |------|----------------|
-|      |                |
+| 2026-07-20 | 원격 브랜치 정리. 메인 라인(`feature/issue-1`)에 머지 안 된 채 방치돼 있던 실험 브랜치 3개를 삭제함: `feat/2`(다크모드 토글 초기 시도 — `src/theme/`로 대체됨), `feat/3-direction-summary`(디렉션 메모 초기 시도 — `DirectionNoteList`로 대체됨), `feature/checklist-accordion`(체크리스트 아코디언 + 구 스키마 — 현재 구조로 대체됨). 반면 이미 머지된 `Calendar-view` / `feature/auth-session` / `feature/google-auth`는 히스토리 기록용으로 삭제하지 않고 남겨둠. |
