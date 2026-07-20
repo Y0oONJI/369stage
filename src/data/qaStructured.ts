@@ -1,5 +1,5 @@
 /**
- * qa_practical.md 의 categories JSON과 동기화.
+ * docs/qa_practical.md 의 categories JSON과 동기화.
  * 카테고리·섹션·항목 id는 체크리스트 항목 id 생성에 사용됨.
  */
 import type { ChecklistItem, QaCategoryId } from '../types/task'
